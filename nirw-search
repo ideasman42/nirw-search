@@ -1,0 +1,636 @@
+#!/usr/bin/env python3
+# GPL License, Version 3.0 or later
+
+'''
+NIRW - nifty interactive regex wrangler.
+'''
+
+__all__ = (
+    'search_and_edit',
+)
+
+import os
+import sys
+import cmd
+import shlex
+import re
+
+help_text = '''
+Usage
+
+Keys::
+* Quit:       Ctrl-C
+* Re-display: Ctrl-D
+
+Special Input::
+* ?:    Show the help message.
+
+Filter Commands::
+* :f    Text    - filters on text
+* :p    Text    - filters on path
+* :fr   Text    - filters on text with regex.
+* :pr   Text    - filters on text with regex.
+
+
+Note that adding a '-' character immediately after the command masks matches out.
+eg:
+   :f- Foo
+Remove all lines containing 'Foo'.
+
+Other Commands::
+
+* :u    Undoes the last filter command.
+'''
+
+
+# -----------------------------------------------------------------------------
+# General Utilities
+
+def finditer_with_line_and_numbers(pattern, string, flags=0):
+    '''
+    A version of 're.finditer' that returns line number pairs.
+    '''
+    matches = list(re.finditer(pattern, string, flags))
+    if not matches:
+        return []
+
+    end = matches[-1].start()
+    # '-1' so a failed 'rfind' maps to the first line.
+    newline_table = {-1: 0}
+    for i, m in enumerate(re.finditer(r'\n', string), 1):
+        # don't find newlines past our last match
+        offset = m.start()
+        if offset > end:
+            break
+        newline_table[offset] = i
+
+    # Failing to find the newline is OK, -1 maps to 0 above.
+    for m in matches:
+        m_start = m.start()
+        m_end = m.end()
+        newline_offset = string.rfind('\n', 0, m_start)
+        newline_end = string.find('\n', m_end)
+        content = string[newline_offset + 1:newline_end]
+        yield (
+            # the match
+            m,
+            # the line number
+            newline_table[newline_offset],
+            # actual text
+            content,
+            # matching ranges
+            [(m_start - newline_offset, m_end - newline_offset)],
+        )
+
+
+def iter_files(path, include_files):
+    for dirpath, dirnames, filenames in os.walk(path):
+        dirnames[:] = [d for d in sorted(dirnames) if not d[0] == '.']
+        filenames = [f for f in filenames if include_files.match(f)]
+        for filename in sorted(filenames):
+            yield os.path.join(dirpath, filename)
+
+
+# -----------------------------------------------------------------------------
+# Config Storage
+
+class Config:
+    __slots__ = (
+        'editor',
+        'is_persistent',
+        'is_multiline',
+        'search_re_flags',
+        'search_path',
+        'include_files',
+    )
+
+    def __init__(self):
+        pass
+
+
+# -----------------------------------------------------------------------------
+# Local
+
+import collections
+Match = collections.namedtuple(
+    'Match',
+    ['filepath', 'line_number', 'text', 'ranges'],
+)
+
+
+def search_execute(search_path, include_files, search_regex):
+    results = []
+    for filepath in iter_files(search_path, include_files):
+        with open(filepath, 'r', encoding='utf-8', errors='surrogateescape') as f:
+            data = f.read()
+            for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex, data):
+                results.append(Match(filepath, nr, l, ranges))
+    return results
+
+
+def search_display(results: list, is_multiline: bool):
+    # Pad number with white-space based on length of maximum number.
+    write = sys.stdout.write
+    format_padded_num = '{:' + str(len(str(len(results)))) + 'd}:'
+
+    if is_multiline:
+        format_prefix_str = (format_padded_num + ' {}:{}: ').format
+        format_suffix_str = '{}\n'.format
+        for (i, (filepath, line_number, text, _)) in enumerate(results, 1):
+            prefix = format_prefix_str(i, filepath, line_number)
+            write(prefix)
+            write(format_suffix_str(text.replace('\n', '\n' + (' ' * len(prefix)))))
+    else:
+        format_str = (format_padded_num + ' {}:{}: {}\n').format
+        for (i, (filepath, line_number, text, _)) in enumerate(results, 1):
+            write(format_str(i, filepath, line_number, text))
+
+
+def display_clear():
+    import subprocess
+    subprocess.run(['tput', 'reset'])
+
+
+def parse_command_args_from_line(line: str) -> (str, str):
+    '''
+    Return command and arguments.
+    '''
+    if not line.startswith(':'):
+        return None, None
+    if not line[1:].rstrip():
+        return None, None
+    command, args = line.partition(' ')[::2]
+    command = command[1:]
+    return command, args
+
+
+def parse_filter_from_command(command: str) -> dict:
+    '''
+    Takes command with ':' removed.
+    '''
+    filter_args = dict(
+        is_regex=False, is_negate=False, is_path=False,
+    )
+
+    if command.endswith('-'):
+        filter_args['is_negate'] = True
+        command = command[:-1]
+    if command.endswith('r'):
+        filter_args['is_regex'] = True
+        command = command[:-1]
+
+    if command == 'f':
+        filter_args['is_path'] = False
+    elif command == 'p':
+        filter_args['is_path'] = True
+    else:
+        return None
+
+    return filter_args
+
+
+class SearchCmd(cmd.Cmd):
+    intro = 'Type help or ? to list commands.\n'
+    prompt = '(unset) '
+    doc_leader = help_text
+    file = None
+
+    # Gets set to a list.
+    results = None
+    # History of previous results
+    # (so we can undo filtering operations).
+    result_history = None
+
+    # Config class instance
+    conf = None
+
+    @staticmethod
+    def _default_number(conf, results, num):
+        import subprocess
+
+        match_data = results[num]
+
+        filepath = shlex.quote(match_data.filepath)
+        line_number = str(match_data.line_number + 1)
+        column = str(match_data.ranges[0][0])
+
+        editor_args = conf.editor
+        editor_args = editor_args.replace('{file}', filepath)
+        editor_args = editor_args.replace('{line}', line_number)
+        editor_args = editor_args.replace('{column}', column)
+
+        subprocess.run(editor_args, shell=True)
+        if conf.is_persistent:
+            return None
+        # stop!
+        return True
+
+    @staticmethod
+    def _default_command(conf, results, result_history, line, is_regex=False):
+        '''
+        Slightly VIM like commands.
+        '''
+
+        command, args = parse_command_args_from_line(line)
+        if command is None:
+            print('No command in "{}"'.format(line))
+            return
+
+        if command == 'u':
+            # Undo
+            if not result_history:
+                print('Nothing to undo!')
+                return
+            results[:] = result_history.pop()
+            search_display(results, conf.is_multiline)
+            return
+        elif command[0] in {'f', 'p'}:
+            filter_args = parse_filter_from_command(command)
+            assert(filter_args is not None)  # checked in the 'if' statement
+            SearchCmd._default_filter(conf, results, result_history, args, **filter_args)
+        else:
+            print('Command ":{}" not known!'.format(command))
+            return
+
+    @staticmethod
+    def _default_search(conf, results, result_history, line):
+        # Perform a new search
+        try:
+            search_regex = re.compile(line)
+        except Exception as ex:
+            print('Invalid regular expression {}, error {}'.format(
+                shlex.quote(line),
+                shlex.quote(str(ex)),
+            ))
+            return None
+
+        SearchCmd.result_history.append(results[:])
+        results[:] = search_execute(conf.search_path, conf.include_files, search_regex)
+        if results:
+            search_display(results, conf.is_multiline)
+        else:
+            print('No results for {} in {}'.format(
+                shlex.quote(line),
+                shlex.quote(conf.search_path),
+            ))
+        return None
+
+    @staticmethod
+    def _default_filter(conf, results, result_history, line, is_regex=False, is_negate=False, is_path=False):
+        # print('Not a number')
+        print(
+            'Filtering{} {}: {}'.format(
+                ' out' if is_negate else '',
+                'path' if is_path else 'text',
+                line,
+            )
+        )
+        redisplay = False
+
+        # Check we have a match
+        try:
+            input_search = re.compile(line if is_regex else re.escape(line)).search
+        except Exception as ex:
+            print('Invalid regular expression {}, error {}'.format(
+                shlex.quote(line),
+                shlex.quote(str(ex)),
+            ))
+            return None
+
+        # Collect new matches
+        results_new = []
+
+        for match_data in results:
+            if is_path:
+                l = match_data.filepath
+            else:
+                l = match_data.text
+
+            if bool(input_search(l)) != is_negate:
+                results_new.append(match_data)
+
+        if not results_new:
+            print('Nothing found!')
+        elif results_new == results:
+            print('No change!')
+        else:
+            result_history.append(results[:])
+            results[:] = results_new
+            redisplay = True
+
+        if redisplay:
+            search_display(results, conf.is_multiline)
+
+    @staticmethod
+    def _complete_from_results(
+            results, text, line, begidx, endidx,
+            is_regex=False, is_path=False,
+    ):
+        comp = set()
+        text_finditer = re.compile(
+            text if is_regex else re.escape(text),
+        ).finditer
+        delim_search = re.compile(
+            '[' +
+            r'\s' +
+            re.escape(r'~!@#$%^&*()[]{}<>,.\/|^+-*=;:?"\'`') +
+            ']'
+        ).search
+
+        for match_data in results:
+            if is_path:
+                l = match_data.filepath
+            else:
+                l = match_data.text
+
+            for match in text_finditer(l):
+                w = l[match.end():]
+                if w:
+                    w_match = delim_search(w)
+                    if w_match is not None:
+                        w = w[:w_match.start()]
+                    if w:
+                        comp.add(w)
+        return [text + w for w in sorted(comp)]
+
+    @staticmethod
+    def _refresh_prompt():
+        if SearchCmd.results:
+            SearchCmd.prompt = '(search-refine) '
+        else:
+            SearchCmd.prompt = '(search-new) '
+
+    def postcmd(self, stop, line):
+        # Set the prompt
+        self._refresh_prompt()
+
+    def default(self, line):
+        try:
+            num = int(line.strip())
+        except ValueError:
+            num = None
+
+        if num is not None:
+            num -= 1
+            if num >= len(self.results):
+                print('Number out of range!')
+                return
+            return self._default_number(self.conf, self.results, num)
+        elif line.startswith(':'):
+            return self._default_command(self.conf, self.results, self.result_history, line)
+        else:
+            if self.results:
+                return self._default_filter(self.conf, self.results, self.result_history, line)
+            else:
+                return self._default_search(self.conf, self.results, self.result_history, line)
+
+    def completedefault(self, text, line, begidx, endidx):
+        try:
+            if line.startswith(':'):
+                command, args = parse_command_args_from_line(line)
+                if command is None:
+                    return []
+
+                if command == 'u':
+                    return []
+                elif command[0] in {'f', 'p'}:
+                    filter_args = parse_filter_from_command(command)
+                    assert(filter_args is not None)  # checked in the 'if' statement
+                    return self._complete_from_results(
+                        self.results, text, line, begidx, endidx,
+                        is_path=filter_args['is_path'],
+                    )
+                else:
+                    return []
+        except:
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def completenames(self, text, line, begidx, endidx):
+        '''
+        Needed so we can override completion for _all_ text
+        not just commands.
+        '''
+        try:
+            return self._complete_from_results(self.results, text, line, begidx, endidx, is_path=False)
+        except:
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def do_EOF(self, _arg):
+        '''
+        Use Ctrl-D to cleat the terminal and re-display.
+        '''
+        display_clear()
+        search_display(self.results, self.conf.is_multiline)
+
+
+def search_and_edit(
+    search_text: str,
+    search_path: str,
+    include_files: str,
+    editor: str,
+    is_persistent: bool,
+    is_ignore_case: bool,
+    is_multiline: bool,
+) -> None:
+    '''
+    :arg search_text: Regex formatted string.
+    :arg search_path: Root directory for searching.
+    :arg include_files: Regex formatted string to match files against.
+    :arg editor: Editor command and arguments.
+    '''
+    # -------------------------------------------------------------------------
+    # Sanitize Input
+
+    search_re_flags = 0
+    if is_ignore_case:
+        search_re_flags |= re.IGNORECASE
+    if is_multiline:
+        search_re_flags |= re.MULTILINE
+
+    if search_text:
+        try:
+            search_regex = re.compile(search_text, search_re_flags)
+        except Exception as ex:
+            print('Failed to parse search text {}, error {}, abort!'.format(
+                shlex.quote(search_text),
+                shlex.quote(str(ex)),
+            ))
+            return
+    else:
+        print('No search text given, entering persistent mode.')
+        is_persistent = True
+
+    try:
+        include_files = re.compile(include_files)
+    except Exception as ex:
+        print('Failed to parse "--include-files {}", error {}, abort!'.format(
+            include_files,
+            shlex.quote(ex),
+        ))
+        return
+
+    if not os.path.exists(search_path):
+        print('Search path "--search-path {}", does not exist, abort!'.format(
+            shlex.quote(search_path),
+        ))
+        return
+
+    if not os.path.isdir(search_path):
+        print('Search path "--search-path {}", is not a directory, abort!'.format(
+            shlex.quote(search_path),
+        ))
+        return
+
+    conf = Config()
+    conf.editor = editor
+    conf.is_persistent = is_persistent
+    conf.is_multiline = is_multiline
+    conf.search_re_flags = search_re_flags
+    conf.search_path = search_path
+    conf.include_files = include_files
+
+    # -------------------------------------------------------------------------
+    # Search
+
+    results = []
+    result_history = []
+
+    if search_text:
+        results[:] = search_execute(search_path, include_files, search_regex)
+
+    if not results:
+        if not is_persistent:
+            print('No results for {} in {}, exiting!'.format(
+                shlex.quote(search_text),
+                shlex.quote(conf.search_path),
+            ))
+
+            return
+
+    search_display(results, is_multiline)
+
+    SearchCmd.conf = conf
+    SearchCmd.results = results
+    SearchCmd.result_history = result_history
+    SearchCmd._refresh_prompt()
+
+    try:
+        SearchCmd(completekey='tab').cmdloop(
+            intro='Enter a number or text to filter, Ctrl-C to exit (? for help): '
+        )
+    except KeyboardInterrupt:
+        return
+
+
+def argparse_create():
+    import argparse
+    import textwrap
+
+    epilog = (
+        '''\
+Typically this should be executed by a wrapper or shell alias.'
+
+command line options:
+
+''' +
+        # Follow Python's --help display.
+        textwrap.indent(help_text, '  ')
+    )
+
+    parser = argparse.ArgumentParser(
+        description=__doc__, epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        '--editor', dest='editor',
+        metavar='EDITOR_COMMAND', required=True,
+        help=(
+            'Command used to edit file and arguments which will be passed to the editor: '
+            '{file}, {line}, {column} will be replaced with the '
+            'file-name, line number and column respectively.'
+        ),
+    )
+    parser.add_argument(
+        '--include-files', dest='include_files',
+        metavar='INCLUDE_FILES', required=True,
+        help='Regular expression matched against each file, only search files that pass.',
+    )
+    parser.add_argument(
+        '--search-path', dest='search_path',
+        metavar='SEARCH_PATH', required=False, default='.',
+        help='Path to search in, defaults to "." when not passed.',
+    )
+
+    # -----------------
+    # Modified Behavior
+    parser.add_argument(
+        '--persistent',
+        dest='is_persistent',
+        default=False,
+        action='store_true',
+        help='Stay open after selecting a file.',
+        required=False,
+    )
+    # Literal text.
+    parser.add_argument(
+        '--literal',
+        dest='is_literal',
+        default=False,
+        action='store_true',
+        help=(
+            'Search for the literal string instead of interpreting as a regex expression '
+            '(only applies to arguments passed in via the command line).'
+        ),
+        required=False,
+    )
+    # Same as grep.
+    parser.add_argument(
+        '-i', '--ignore-case',
+        dest='is_ignore_case',
+        default=False,
+        action='store_true',
+        help='Case insensitive search.',
+        required=False,
+    )
+    # Same as pcregrep.
+    parser.add_argument(
+        '-M', '--multiline',
+        dest='is_multiline',
+        default=False,
+        action='store_true',
+        help='Multi-line search.',
+        required=False,
+    )
+
+    parser.add_argument('search', nargs='*')
+
+    return parser
+
+
+def main():
+    import re
+
+    args = argparse_create().parse_args()
+
+    search_text = ' '.join(args.search)
+    if args.is_literal:
+        search_text = re.escape(search_text)
+
+    search_and_edit(
+        search_text,
+        search_path=args.search_path,
+        include_files=args.include_files,
+        editor=args.editor,
+        is_persistent=args.is_persistent,
+        is_ignore_case=args.is_ignore_case,
+        is_multiline=args.is_multiline,
+    )
+
+
+if __name__ == '__main__':
+    main()
