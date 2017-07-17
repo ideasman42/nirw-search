@@ -1,0 +1,11 @@
+# generic files to ignore
+.*
+
+# python temp paths
+__pycache__/
+
+# editors
+*~
+*.swp
+*.swo
+*#
