@@ -324,12 +324,16 @@ class SearchCmd(cmd.Cmd):
             ))
             return None
 
-        SearchCmd.result_history.append(results[:])
-        results.clear()
+        # Fill new list incase the user presses Ctrl-C
+        # while searching - don't leave in an invalid state.
+        results_new = []
         search_display(
-            search_execute(conf.search_path, conf.include_files, search_regex, results),
+            search_execute(conf.search_path, conf.include_files, search_regex, results_new),
             conf,
         )
+        SearchCmd.result_history.append(results[:])
+        results[:] = results_new
+        del results_new
         if not results:
             print('No results for {} in {}'.format(
                 shlex.quote(line),
@@ -588,14 +592,27 @@ def search_and_edit(
     SearchCmd.conf = conf
     SearchCmd.results = results
     SearchCmd.result_history = result_history
-    SearchCmd._refresh_prompt()
+    intro = 'Enter a number or text to filter, Ctrl-C to exit (? for help): '
 
-    try:
-        SearchCmd(completekey='tab').cmdloop(
-            intro='Enter a number or text to filter, Ctrl-C to exit (? for help): '
-        )
-    except KeyboardInterrupt:
-        return
+    while True:
+        SearchCmd._refresh_prompt()
+        cmd = SearchCmd(completekey='tab')
+        try:
+            cmd.cmdloop(
+                intro=intro,
+            )
+        except KeyboardInterrupt:
+            if conf.is_persistent and (cmd.lastcmd != '' or results):
+                intro=(
+                    '\n'
+                    'Resetting search (Ctrl-C pressed in persistent mode),\n'
+                    'Start a new search or press again to exit:'
+                )
+                SearchCmd.results.clear()
+                SearchCmd.result_history.clear()
+                continue
+            else:
+                return
 
 
 def argparse_create():
@@ -645,7 +662,11 @@ command line options:
         dest='is_persistent',
         default=False,
         action='store_true',
-        help='Stay open after selecting a file.',
+        help=(
+            'Stay open after selecting a file, '
+            'pressing Ctrl-C resets a new search instead of exiting, '
+            'pressing twice exits.'
+        ),
         required=False,
     )
     # Literal text.

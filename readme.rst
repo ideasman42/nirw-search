@@ -84,7 +84,9 @@ Output of ``nirw-search --help``::
                            search files that pass.
      --search-path SEARCH_PATH
                            Path to search in, defaults to "." when not passed.
-     --persistent          Stay open after selecting a file.
+     --persistent          Stay open after selecting a file, pressing Ctrl-C
+                           resets a new search instead of exiting, pressing twice
+                           exits.
      --literal             Search for the literal string instead of interpreting
                            as a regex expression (only applies to arguments
                            passed in via the command line).
