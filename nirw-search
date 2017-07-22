@@ -170,18 +170,37 @@ Match = collections.namedtuple(
 )
 
 
-def search_execute(search_path, include_files, search_regex, results_output):
+def search_execute(search_path, include_files, search_regex_list, results_output):
     '''
     Search files, output as generator and into 'results_output' list.
     This is done so we can display the output before its finished searching.
     '''
+    search_regex_first = search_regex_list[0]
+    search_regex_others_finditer = [re_other.finditer for re_other in search_regex_list[1:]]
+    is_search_regex_multi = len(search_regex_list) > 1
     for filepath in iter_files(search_path, include_files):
         with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
             data = f.read()
-            for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex, data):
-                match = Match(filepath, nr, l, ranges)
-                results_output.append(match)
-                yield match
+            for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex_first, data):
+
+                if is_search_regex_multi:
+                    for text_finditer in search_regex_others_finditer:
+                        match_other = None
+                        for match_other in text_finditer(l):
+                            ranges.append((match_other.start(), match_other.end()))
+                        if match_other is None:
+                            match = None
+                            break
+                    # failed to find one of 'search_regex_list'
+                    # continue
+                    if match is None:
+                        continue
+                    ranges.sort()
+                    ranges[:] = merge_ranges(ranges)
+
+                match_data = Match(filepath, nr, l, ranges)
+                results_output.append(match_data)
+                yield match_data
 
 
 def search_display_ex(results, is_multiline: bool, is_color: bool):
@@ -316,7 +335,7 @@ class SearchCmd(cmd.Cmd):
     def _default_search(conf, results, result_history, line):
         # Perform a new search
         try:
-            search_regex = re.compile(line)
+            search_regex_list = [re.compile(line)]
         except Exception as ex:
             print('Invalid regular expression {}, error {}'.format(
                 shlex.quote(line),
@@ -328,7 +347,7 @@ class SearchCmd(cmd.Cmd):
         # while searching - don't leave in an invalid state.
         results_new = []
         search_display(
-            search_execute(conf.search_path, conf.include_files, search_regex, results_new),
+            search_execute(conf.search_path, conf.include_files, search_regex_list, results_new),
             conf,
         )
         SearchCmd.result_history.append(results[:])
@@ -500,7 +519,7 @@ class SearchCmd(cmd.Cmd):
 
 
 def search_and_edit(
-    search_text: str,
+    search_text: list,
     search_path: str,
     include_files: str,
     editor: str,
@@ -510,7 +529,7 @@ def search_and_edit(
     is_color: bool,
 ) -> None:
     '''
-    :arg search_text: Regex formatted string.
+    :arg search_text: List of regex formatted strings.
     :arg search_path: Root directory for searching.
     :arg include_files: Regex formatted string to match files against.
     :arg editor: Editor command and arguments.
@@ -524,15 +543,17 @@ def search_and_edit(
     if is_multiline:
         search_re_flags |= re.MULTILINE
 
+    search_regex_list = []
     if search_text:
-        try:
-            search_regex = re.compile(search_text, search_re_flags)
-        except Exception as ex:
-            print('Failed to parse search text {}, error {}, abort!'.format(
-                shlex.quote(search_text),
-                shlex.quote(str(ex)),
-            ))
-            return
+        for t in search_text:
+            try:
+                search_regex_list.append(re.compile(t, search_re_flags))
+            except Exception as ex:
+                print('Failed to parse search text {}, error {}, abort!'.format(
+                    shlex.quote(t),
+                    shlex.quote(str(ex)),
+                ))
+                return
     else:
         print('No search text given, entering persistent mode.')
         is_persistent = True
@@ -575,19 +596,18 @@ def search_and_edit(
 
     if search_text:
         search_display(
-            search_execute(search_path, include_files, search_regex, results),
+            search_execute(search_path, include_files, search_regex_list, results),
             conf,
         )
 
     if not results:
         if not is_persistent:
-            print('No results for {} in {}, exiting!'.format(
-                shlex.quote(search_text),
+            print('No results for [{}] in {}, exiting!'.format(
+                ', '.join([shlex.quote(t) for t in search_text]),
                 shlex.quote(conf.search_path),
             ))
 
             return
-
 
     SearchCmd.conf = conf
     SearchCmd.results = results
@@ -611,7 +631,7 @@ def search_and_edit(
             )
         except KeyboardInterrupt:
             if conf.is_persistent and (cmd.lastcmd != '' or results):
-                intro=(
+                intro = (
                     '\n'
                     'Resetting search (Ctrl-C pressed in persistent mode),\n'
                     'Start a new search or press again to exit:'
@@ -722,6 +742,8 @@ command line options:
         help=(
             'Text to search files for, '
             'must be a regular expression unless --literal is passed. '
+            'If multiple search arguments are passed, '
+            'the results must match all (in any order). '
             'If no search terms are given you will enter a prompt '
             'where you can perform multiple searches. This implicitly enables --persistent.'
         ),
@@ -736,9 +758,10 @@ def main():
 
     args = argparse_create().parse_args()
 
-    search_text = ' '.join(args.search)
     if args.is_literal:
-        search_text = re.escape(search_text)
+        search_text = [re.escape(t) for t in args.search if t]
+    else:
+        search_text = [t for t in args.search if t]
 
     if args.color == 'always':
         is_color = True

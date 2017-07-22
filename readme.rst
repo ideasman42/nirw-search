@@ -58,6 +58,10 @@ Then you can search C source files by typing::
 
    crep "some text"
 
+To search for multiple occurrences (in any order) simply separate the arguments::
+
+   crep some text
+
 For case insensitive searches::
 
    crep -i "other text"
@@ -90,10 +94,11 @@ Output of ``nirw-search --help``::
 
    positional arguments:
      search                Text to search files for, must be a regular expression
-                           unless --literal is passed. If no search terms are
-                           given you will enter a prompt where you can perform
-                           multiple searches. This implicitly enables
-                           --persistent.
+                           unless --literal is passed. If multiple search
+                           arguments are passed, the results must match all (in
+                           any order). If no search terms are given you will
+                           enter a prompt where you can perform multiple
+                           searches. This implicitly enables --persistent.
 
    optional arguments:
      -h, --help            show this help message and exit
