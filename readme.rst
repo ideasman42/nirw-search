@@ -85,9 +85,10 @@ nevertheless there are times where you may want to change the default behavior.
 
 Output of ``nirw-search --help``::
 
-   usage: nirw-search [-h] --editor EDITOR_COMMAND --include-files INCLUDE_FILES
-                      [--search-path SEARCH_PATH] [--persistent] [--literal] [-i]
-                      [-M] [--color {auto,always,never}]
+   usage: nirw-search [-h] --editor EDITOR_COMMAND [--persistent]
+                      [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
+                      [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
+                      [--color {auto,always,never}]
                       [search [search ...]]
 
    NIRW - nifty interactive regex wrangler.
@@ -107,19 +108,33 @@ Output of ``nirw-search --help``::
                            passed to the editor: {file}, {line}, {column} will be
                            replaced with the file-name, line number and column
                            respectively.
-     --include-files INCLUDE_FILES
-                           Regular expression matched against each file, only
-                           search files that pass.
-     --search-path SEARCH_PATH
-                           Path to search in, defaults to "." when not passed.
      --persistent          Stay open after selecting a file, pressing Ctrl-C
                            resets a new search instead of exiting, pressing twice
                            exits.
+
+   filepath matching arguments:
+     These options control which files are selected to be searched.
+
+     --search-path SEARCH_PATH
+                           Path to search in, defaults to "." when not passed.
+     --include-files INCLUDE_FILES
+                           Regular expression matched against each file, only
+                           search files that pass.
+     --exclude-files EXCLUDE_FILES
+                           Regular expression matched against each file, only
+                           search files that fail. Defaults to "\." (skip hidden
+                           files).
+
+   expression matching arguments:
+     These options control how matching is performed
+
      --literal             Search for the literal string instead of interpreting
                            as a regex expression (only applies to arguments
                            passed in via the command line).
      -i, --ignore-case     Case insensitive search.
      -M, --multiline       Multi-line search.
+
+   display arguments:
      --color {auto,always,never}
                            Color highlight matches.
 

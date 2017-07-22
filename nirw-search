@@ -84,10 +84,16 @@ def finditer_with_line_and_numbers(pattern, string, flags=0):
         )
 
 
-def iter_files(path, include_files):
+def iter_files(path, include_files, exclude_files):
+    include_files_match = include_files.match if include_files else None
+    exclude_files_match = exclude_files.match if exclude_files else None
     for dirpath, dirnames, filenames in os.walk(path):
         dirnames[:] = [d for d in sorted(dirnames) if not d[0] == '.']
-        filenames = [f for f in filenames if include_files.match(f)]
+        filenames = [
+            f for f in filenames
+            if (include_files_match is None or include_files_match(f) is not None)
+            if (exclude_files_match is None or exclude_files_match(f) is None)
+        ]
         for filename in sorted(filenames):
             yield os.path.join(dirpath, filename)
 
@@ -146,6 +152,7 @@ class Config:
         'search_re_flags',
         'search_path',
         'include_files',
+        'exclude_files',
     )
 
     def __init__(self):
@@ -170,7 +177,7 @@ Match = collections.namedtuple(
 )
 
 
-def search_execute(search_path, include_files, search_regex_list, results_output):
+def search_execute(search_path, include_files, exclude_files, search_regex_list, results_output):
     '''
     Search files, output as generator and into 'results_output' list.
     This is done so we can display the output before its finished searching.
@@ -178,7 +185,7 @@ def search_execute(search_path, include_files, search_regex_list, results_output
     search_regex_first = search_regex_list[0]
     search_regex_others_finditer = [re_other.finditer for re_other in search_regex_list[1:]]
     is_search_regex_multi = len(search_regex_list) > 1
-    for filepath in iter_files(search_path, include_files):
+    for filepath in iter_files(search_path, include_files, exclude_files):
         with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
             data = f.read()
             for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex_first, data):
@@ -347,7 +354,13 @@ class SearchCmd(cmd.Cmd):
         # while searching - don't leave in an invalid state.
         results_new = []
         search_display(
-            search_execute(conf.search_path, conf.include_files, search_regex_list, results_new),
+            search_execute(
+                conf.search_path,
+                conf.include_files,
+                conf.exclude_files,
+                search_regex_list,
+                results_new,
+            ),
             conf,
         )
         SearchCmd.result_history.append(results[:])
@@ -522,6 +535,7 @@ def search_and_edit(
     search_text: list,
     search_path: str,
     include_files: str,
+    exclude_files: str,
     editor: str,
     is_persistent: bool,
     is_ignore_case: bool,
@@ -567,6 +581,16 @@ def search_and_edit(
         ))
         return
 
+    if exclude_files:
+        try:
+            exclude_files = re.compile(exclude_files)
+        except Exception as ex:
+            print('Failed to parse "--exclude-files {}", error {}, abort!'.format(
+                exclude_files,
+                shlex.quote(ex),
+            ))
+            return
+
     if not os.path.exists(search_path):
         print('Search path "--search-path {}", does not exist, abort!'.format(
             shlex.quote(search_path),
@@ -587,6 +611,7 @@ def search_and_edit(
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
     conf.include_files = include_files
+    conf.exclude_files = exclude_files
 
     # -------------------------------------------------------------------------
     # Search
@@ -596,7 +621,13 @@ def search_and_edit(
 
     if search_text:
         search_display(
-            search_execute(search_path, include_files, search_regex_list, results),
+            search_execute(
+                search_path,
+                include_files,
+                exclude_files,
+                search_regex_list,
+                results,
+            ),
             conf,
         )
 
@@ -672,19 +703,10 @@ command line options:
             'file-name, line number and column respectively.'
         ),
     )
-    parser.add_argument(
-        '--include-files', dest='include_files',
-        metavar='INCLUDE_FILES', required=True,
-        help='Regular expression matched against each file, only search files that pass.',
-    )
-    parser.add_argument(
-        '--search-path', dest='search_path',
-        metavar='SEARCH_PATH', required=False, default='.',
-        help='Path to search in, defaults to "." when not passed.',
-    )
 
     # -----------------
     # Modified Behavior
+
     parser.add_argument(
         '--persistent',
         dest='is_persistent',
@@ -697,8 +719,45 @@ command line options:
         ),
         required=False,
     )
+
+    # -------------
+    # Path Matching
+
+    parser_group = parser.add_argument_group(
+        title='filepath matching arguments',
+        description='These options control which files are selected to be searched.'
+    )
+
+    parser_group.add_argument(
+        '--search-path', dest='search_path',
+        metavar='SEARCH_PATH', required=False, default='.',
+        help='Path to search in, defaults to "." when not passed.',
+    )
+
+    parser_group.add_argument(
+        '--include-files', dest='include_files',
+        metavar='INCLUDE_FILES', required=True,
+        help='Regular expression matched against each file, only search files that pass.',
+    )
+    parser_group.add_argument(
+        '--exclude-files', dest='exclude_files',
+        metavar='EXCLUDE_FILES', required=False,
+        default='\\.',
+        help=(
+            'Regular expression matched against each file, only search files that fail. '
+            'Defaults to "\\." (skip hidden files).'
+        ),
+    )
+
+    # -------------------
+    # Expression Matching
+
+    parser_group = parser.add_argument_group(
+        title='expression matching arguments',
+        description='These options control how matching is performed'
+    )
     # Literal text.
-    parser.add_argument(
+    parser_group.add_argument(
         '--literal',
         dest='is_literal',
         default=False,
@@ -710,7 +769,7 @@ command line options:
         required=False,
     )
     # Same as grep.
-    parser.add_argument(
+    parser_group.add_argument(
         '-i', '--ignore-case',
         dest='is_ignore_case',
         default=False,
@@ -719,7 +778,7 @@ command line options:
         required=False,
     )
     # Same as pcregrep.
-    parser.add_argument(
+    parser_group.add_argument(
         '-M', '--multiline',
         dest='is_multiline',
         default=False,
@@ -727,8 +786,15 @@ command line options:
         help='Multi-line search.',
         required=False,
     )
+
+    # -------
+    # Display
+
+    parser_group = parser.add_argument_group(
+        title='display arguments',
+    )
     # Same as pcregrep.
-    parser.add_argument(
+    parser_group.add_argument(
         '--color',
         dest='color',
         default='auto',
@@ -774,6 +840,7 @@ def main():
         search_text,
         search_path=args.search_path,
         include_files=args.include_files,
+        exclude_files=args.exclude_files,
         editor=args.editor,
         is_persistent=args.is_persistent,
         is_ignore_case=args.is_ignore_case,
