@@ -170,36 +170,38 @@ Match = collections.namedtuple(
 )
 
 
-def search_execute(search_path, include_files, search_regex):
-    results = []
+def search_execute(search_path, include_files, search_regex, results_output):
+    '''
+    Search files, output as generator and into 'results_output' list.
+    This is done so we can display the output before its finished searching.
+    '''
     for filepath in iter_files(search_path, include_files):
         with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
             data = f.read()
             for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex, data):
-                results.append(Match(filepath, nr, l, ranges))
-    return results
+                match = Match(filepath, nr, l, ranges)
+                results_output.append(match)
+                yield match
 
 
-def search_display(results: list, is_multiline: bool, is_color):
-    # Pad number with white-space based on length of maximum number.
+def search_display_ex(results, is_multiline: bool, is_color: bool):
+    '''
+    Note that 'results' may be a generator.
+    '''
     write = sys.stdout.write
-    format_padded_num = '{:' + str(len(str(len(results)))) + 'd}:'
-
     if is_multiline:
-        format_prefix_str = (format_padded_num + ' {}:{}: ').format
-        format_suffix_str = '{}\n'.format
-        for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
-            if is_color is True:
-                text = string_color_ranges(text, ranges)
-            prefix = format_prefix_str(i, filepath, line_number)
-            write(prefix)
-            write(format_suffix_str(text.replace('\n', '\n' + (' ' * len(prefix)))))
+        format_str = '{}: {}:{}:\n{}\n'.format
     else:
-        format_str = (format_padded_num + ' {}:{}: {}\n').format
-        for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
-            if is_color is True:
-                text = string_color_ranges(text, ranges)
-            write(format_str(i, filepath, line_number, text))
+        format_str = '{}: {}:{}: {}\n'.format
+
+    for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
+        if is_color is True:
+            text = string_color_ranges(text, ranges)
+        write(format_str(i, filepath, line_number, text))
+
+
+def search_display(results: list, conf):
+    search_display_ex(results, conf.is_multiline, conf.is_color)
 
 
 def display_clear():
@@ -298,7 +300,7 @@ class SearchCmd(cmd.Cmd):
                 print('Nothing to undo!')
                 return
             results[:] = result_history.pop()
-            search_display(results, conf.is_multiline, conf.is_color)
+            search_display(results, conf)
             return
         elif command[0] in {'f', 'p'}:
             filter_args = parse_filter_from_command(command)
@@ -323,10 +325,12 @@ class SearchCmd(cmd.Cmd):
             return None
 
         SearchCmd.result_history.append(results[:])
-        results[:] = search_execute(conf.search_path, conf.include_files, search_regex)
-        if results:
-            search_display(results, conf.is_multiline, conf.is_color)
-        else:
+        results.clear()
+        search_display(
+            search_execute(conf.search_path, conf.include_files, search_regex, results),
+            conf,
+        )
+        if not results:
             print('No results for {} in {}'.format(
                 shlex.quote(line),
                 shlex.quote(conf.search_path),
@@ -383,7 +387,7 @@ class SearchCmd(cmd.Cmd):
             redisplay = True
 
         if redisplay:
-            search_display(results, conf.is_multiline, conf.is_color)
+            search_display(results, conf)
 
     @staticmethod
     def _complete_from_results(
@@ -488,7 +492,7 @@ class SearchCmd(cmd.Cmd):
         Use Ctrl-D to cleat the terminal and re-display.
         '''
         display_clear()
-        search_display(self.results, self.conf.is_multiline, self.conf.is_color)
+        search_display(self.results, self.conf)
 
 
 def search_and_edit(
@@ -566,7 +570,10 @@ def search_and_edit(
     result_history = []
 
     if search_text:
-        results[:] = search_execute(search_path, include_files, search_regex)
+        search_display(
+            search_execute(search_path, include_files, search_regex, results),
+            conf,
+        )
 
     if not results:
         if not is_persistent:
@@ -577,7 +584,6 @@ def search_and_edit(
 
             return
 
-    search_display(results, is_multiline, is_color)
 
     SearchCmd.conf = conf
     SearchCmd.results = results
@@ -717,7 +723,7 @@ def main():
 
 if __name__ == '__main__':
     # Even though we catch this during command line loop,
-    # support exiting during search (without a stack trace).
+    # but support exiting during search (without a stack trace).
     try:
         main()
     except KeyboardInterrupt:
