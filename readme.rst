@@ -11,7 +11,8 @@ NIRW is a hackable text searching tool.
 - Highlights matches.
 - Tab auto-complete terms based on current results.
 - Simple command line for more advanced filtering.
-- Optional ignore-case and multi-line support.
+- Optional ignore-case and multi-line and literal (without regex) support.
+- No configuration.
 
 
 Usage
@@ -46,6 +47,10 @@ For case insensitive searches::
 For multi-line searches::
 
    crep -M "new\nline"
+
+For literal searches::
+
+   crep --literal "if (a > c - b[0]) {"
 
 
 TODO
