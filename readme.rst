@@ -34,6 +34,20 @@ Regex expressions are used unless the ``--literal`` option is passed
 (`see docs <https://docs.python.org/3.6/library/re.html>`__).
 
 
+Example Wrapper
+---------------
+
+At a minimum a wrapper must set the ``--include-files`` and ``--editor`` arguments, eg:
+
+Simple ``*.txt`` file searcher::
+
+   #!/bin/sh
+   exec nirw-search \
+       --include-files ".+\.txt$" \
+       --editor "gvim '+cal cursor({line},{column})' {file}" \
+       "$@"
+
+
 Help Text
 ---------
 
