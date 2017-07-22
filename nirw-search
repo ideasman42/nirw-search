@@ -70,7 +70,8 @@ def finditer_with_line_and_numbers(pattern, string, flags=0):
         m_end = m.end()
         newline_offset = string.rfind('\n', 0, m_start)
         newline_end = string.find('\n', m_end)
-        content = string[newline_offset + 1:newline_end]
+        content_offset = newline_offset + 1
+        content = string[content_offset:newline_end]
         yield (
             # the match
             m,
@@ -79,7 +80,7 @@ def finditer_with_line_and_numbers(pattern, string, flags=0):
             # actual text
             content,
             # matching ranges
-            [(m_start - newline_offset, m_end - newline_offset)],
+            [(m_start - content_offset, m_end - content_offset)],
         )
 
 
@@ -91,6 +92,48 @@ def iter_files(path, include_files):
             yield os.path.join(dirpath, filename)
 
 
+def merge_ranges(ranges):
+    '''
+    Range must be already sorted.
+    '''
+    result = []
+    if ranges:
+        min_step, max_step = ranges[0]
+        for min_test, max_test in ranges:
+            if min_test <= max_step:
+                if max_step < max_test:
+                    max_step = max_test
+            else:
+                # yield (min_step, max_step)
+                result.append((min_step, max_step))
+                min_step = min_test
+                max_step = max_test
+        # yield (min_step, max_step)
+        result.append((min_step, max_step))
+    return result
+
+
+def string_color_ranges(text, ranges):
+    '''
+    Ranges need to be a list of min, max's
+    (sorted by max, largest first, must be non-overlapping)
+    '''
+    color_start = '\033[92m'
+    color_end = '\033[0m'
+    last = 0
+    text_split = []
+    for range_start, range_end in ranges:
+        text_split.extend([
+            text[last:range_start],
+            color_start,
+            text[range_start:range_end],
+            color_end,
+        ])
+        last = range_end
+    text_split.append(text[last:])
+    return ''.join(text_split)
+
+
 # -----------------------------------------------------------------------------
 # Config Storage
 
@@ -99,6 +142,7 @@ class Config:
         'editor',
         'is_persistent',
         'is_multiline',
+        'is_color',
         'search_re_flags',
         'search_path',
         'include_files',
@@ -113,8 +157,16 @@ class Config:
 
 import collections
 Match = collections.namedtuple(
-    'Match',
-    ['filepath', 'line_number', 'text', 'ranges'],
+    'Match', [
+        # string (filepath)
+        'filepath',
+        # int
+        'line_number',
+        # string (may be multi-line)
+        'text',
+        # list of numbers [(min, max), ...]
+        'ranges',
+    ],
 )
 
 
@@ -128,7 +180,7 @@ def search_execute(search_path, include_files, search_regex):
     return results
 
 
-def search_display(results: list, is_multiline: bool):
+def search_display(results: list, is_multiline: bool, is_color):
     # Pad number with white-space based on length of maximum number.
     write = sys.stdout.write
     format_padded_num = '{:' + str(len(str(len(results)))) + 'd}:'
@@ -136,13 +188,17 @@ def search_display(results: list, is_multiline: bool):
     if is_multiline:
         format_prefix_str = (format_padded_num + ' {}:{}: ').format
         format_suffix_str = '{}\n'.format
-        for (i, (filepath, line_number, text, _)) in enumerate(results, 1):
+        for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
+            if is_color is True:
+                text = string_color_ranges(text, ranges)
             prefix = format_prefix_str(i, filepath, line_number)
             write(prefix)
             write(format_suffix_str(text.replace('\n', '\n' + (' ' * len(prefix)))))
     else:
         format_str = (format_padded_num + ' {}:{}: {}\n').format
-        for (i, (filepath, line_number, text, _)) in enumerate(results, 1):
+        for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
+            if is_color is True:
+                text = string_color_ranges(text, ranges)
             write(format_str(i, filepath, line_number, text))
 
 
@@ -242,7 +298,7 @@ class SearchCmd(cmd.Cmd):
                 print('Nothing to undo!')
                 return
             results[:] = result_history.pop()
-            search_display(results, conf.is_multiline)
+            search_display(results, conf.is_multiline, conf.is_color)
             return
         elif command[0] in {'f', 'p'}:
             filter_args = parse_filter_from_command(command)
@@ -267,7 +323,7 @@ class SearchCmd(cmd.Cmd):
         SearchCmd.result_history.append(results[:])
         results[:] = search_execute(conf.search_path, conf.include_files, search_regex)
         if results:
-            search_display(results, conf.is_multiline)
+            search_display(results, conf.is_multiline, conf.is_color)
         else:
             print('No results for {} in {}'.format(
                 shlex.quote(line),
@@ -300,14 +356,20 @@ class SearchCmd(cmd.Cmd):
         # Collect new matches
         results_new = []
 
-        for match_data in results:
-            if is_path:
-                l = match_data.filepath
-            else:
-                l = match_data.text
-
-            if bool(input_search(l)) != is_negate:
-                results_new.append(match_data)
+        if is_path:
+            for match_data in results:
+                if bool(input_search(match_data.filepath)) != is_negate:
+                    results_new.append(match_data)
+        else:
+            for match_data in results:
+                match = input_search(match_data.text)
+                if bool(match) != is_negate:
+                    if is_negate is False:
+                        ranges = match_data.ranges
+                        ranges.append((match.start(), match.end()))
+                        ranges.sort()
+                        match_data = match_data._replace(ranges=merge_ranges(ranges))
+                    results_new.append(match_data)
 
         if not results_new:
             print('Nothing found!')
@@ -319,7 +381,7 @@ class SearchCmd(cmd.Cmd):
             redisplay = True
 
         if redisplay:
-            search_display(results, conf.is_multiline)
+            search_display(results, conf.is_multiline, conf.is_color)
 
     @staticmethod
     def _complete_from_results(
@@ -424,7 +486,7 @@ class SearchCmd(cmd.Cmd):
         Use Ctrl-D to cleat the terminal and re-display.
         '''
         display_clear()
-        search_display(self.results, self.conf.is_multiline)
+        search_display(self.results, self.conf.is_multiline, self.conf.is_color)
 
 
 def search_and_edit(
@@ -435,6 +497,7 @@ def search_and_edit(
     is_persistent: bool,
     is_ignore_case: bool,
     is_multiline: bool,
+    is_color: bool,
 ) -> None:
     '''
     :arg search_text: Regex formatted string.
@@ -489,6 +552,7 @@ def search_and_edit(
     conf.editor = editor
     conf.is_persistent = is_persistent
     conf.is_multiline = is_multiline
+    conf.is_color = is_color
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
     conf.include_files = include_files
@@ -511,7 +575,7 @@ def search_and_edit(
 
             return
 
-    search_display(results, is_multiline)
+    search_display(results, is_multiline, is_color)
 
     SearchCmd.conf = conf
     SearchCmd.results = results
@@ -606,6 +670,15 @@ command line options:
         help='Multi-line search.',
         required=False,
     )
+    # Same as pcregrep.
+    parser.add_argument(
+        '--color',
+        dest='color',
+        default='auto',
+        help='Use color.',
+        required=False,
+        choices=['auto', 'always', 'never']
+    )
 
     parser.add_argument('search', nargs='*')
 
@@ -621,6 +694,13 @@ def main():
     if args.is_literal:
         search_text = re.escape(search_text)
 
+    if args.color == 'always':
+        is_color = True
+    elif args.color == 'never':
+        is_color = False
+    else:
+        is_color = sys.stdout.isatty()
+
     search_and_edit(
         search_text,
         search_path=args.search_path,
@@ -629,6 +709,7 @@ def main():
         is_persistent=args.is_persistent,
         is_ignore_case=args.is_ignore_case,
         is_multiline=args.is_multiline,
+        is_color=is_color,
     )
 
 

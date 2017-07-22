@@ -8,6 +8,7 @@ NIRW is a hackable text searching tool.
 - Recursively searches from the current directly by default.
 - One-off operation (search and open one of the results).
 - Optionally refine within the current search.
+- Highlights matches.
 - Tab auto-complete terms based on current results.
 - Simple command line for more advanced filtering.
 - Optional ignore-case and multi-line support.
@@ -50,6 +51,5 @@ For multi-line searches::
 TODO
 ====
 
-- Color matches.
 - Multi-processing for regex matching.
 - Configurable encoding (currently only utf-8).
