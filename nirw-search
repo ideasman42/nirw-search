@@ -716,4 +716,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Even though we catch this during command line loop,
+    # support exiting during search (without a stack trace).
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('Keyboard interrupt, abort!')
