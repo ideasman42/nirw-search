@@ -302,7 +302,9 @@ class SearchCmd(cmd.Cmd):
             return
         elif command[0] in {'f', 'p'}:
             filter_args = parse_filter_from_command(command)
-            assert(filter_args is not None)  # checked in the 'if' statement
+            if filter_args is None:
+                print('Command ":{}" contains unknown syntax!'.format(command))
+                return
             SearchCmd._default_filter(conf, results, result_history, args, **filter_args)
         else:
             print('Command ":{}" not known!'.format(command))
