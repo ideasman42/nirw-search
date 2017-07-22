@@ -592,7 +592,15 @@ def search_and_edit(
     SearchCmd.conf = conf
     SearchCmd.results = results
     SearchCmd.result_history = result_history
-    intro = 'Enter a number or text to filter, Ctrl-C to exit (? for help): '
+    if results:
+        intro = 'Enter a number or text to filter'
+    else:
+        intro = 'Enter a search text, then a number or text to filter'
+
+    if is_persistent:
+        intro = intro + ', Ctrl-C to reset, again to exit (? for help): '
+    else:
+        intro = intro + ', Ctrl-C to exit (? for help): '
 
     while True:
         SearchCmd._refresh_prompt()
