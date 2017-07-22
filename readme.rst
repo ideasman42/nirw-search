@@ -75,7 +75,7 @@ Output of ``nirw-search --help``::
      --color {auto,always,never}
                            Use color.
 
-   Typically this should be executed by a wrapper or shell alias.'
+   Typically this should be executed by a wrapper or shell alias.
 
    command line options:
 
@@ -92,7 +92,7 @@ Output of ``nirw-search --help``::
      * :f    Text    - filters on text
      * :p    Text    - filters on path
      * :fr   Text    - filters on text with regex.
-     * :pr   Text    - filters on text with regex.
+     * :pr   Text    - filters on path with regex.
 
      Note that adding a '-' character immediately after the command masks matches out.
      eg:
