@@ -688,7 +688,16 @@ command line options:
         choices=['auto', 'always', 'never']
     )
 
-    parser.add_argument('search', nargs='*')
+    parser.add_argument(
+        'search',
+        help=(
+            'Text to search files for, '
+            'must be a regular expression unless --literal is passed. '
+            'If no search terms are given you will enter a prompt '
+            'where you can perform multiple searches. This implicitly enables --persistent.'
+        ),
+        nargs='*',
+    )
 
     return parser
 

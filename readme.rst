@@ -66,7 +66,11 @@ Output of ``nirw-search --help``::
    NIRW - nifty interactive regex wrangler.
 
    positional arguments:
-     search
+     search                Text to search files for, must be a regular expression
+                           unless --literal is passed. If no search terms are
+                           given you will enter a prompt where you can perform
+                           multiple searches. This implicitly enables
+                           --persistent.
 
    optional arguments:
      -h, --help            show this help message and exit
@@ -116,7 +120,6 @@ Output of ``nirw-search --help``::
      Other Commands::
 
      * :u    Undoes the last filter command.
-
 
 .. END HELP TEXT
 
