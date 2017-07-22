@@ -26,9 +26,85 @@ This allows you to setup commands, typically one per language.
 
 Results are enumerated, typing a number opens the match and exists.
 
-Otherwise you can press '?' to see command line options.
+Otherwise you can press ``?`` to see how you can refine your search.
 
-Regex expressions are supported (`see docs <https://docs.python.org/3.6/library/re.html>`__).
+To see available command line options when executing the search command use ``--help``.
+
+Regex expressions are used unless the ``--literal`` option is passed
+(`see docs <https://docs.python.org/3.6/library/re.html>`__).
+
+
+Help Text
+---------
+
+For typical usage you should not be entering a long list of command-line arguments,
+nevertheless there are times where you may want to change the default behavior.
+
+.. BEGIN HELP TEXT
+
+Output of ``nirw-search --help``::
+
+   usage: nirw-search [-h] --editor EDITOR_COMMAND --include-files INCLUDE_FILES
+                      [--search-path SEARCH_PATH] [--persistent] [--literal] [-i]
+                      [-M] [--color {auto,always,never}]
+                      [search [search ...]]
+
+   NIRW - nifty interactive regex wrangler.
+
+   positional arguments:
+     search
+
+   optional arguments:
+     -h, --help            show this help message and exit
+     --editor EDITOR_COMMAND
+                           Command used to edit file and arguments which will be
+                           passed to the editor: {file}, {line}, {column} will be
+                           replaced with the file-name, line number and column
+                           respectively.
+     --include-files INCLUDE_FILES
+                           Regular expression matched against each file, only
+                           search files that pass.
+     --search-path SEARCH_PATH
+                           Path to search in, defaults to "." when not passed.
+     --persistent          Stay open after selecting a file.
+     --literal             Search for the literal string instead of interpreting
+                           as a regex expression (only applies to arguments
+                           passed in via the command line).
+     -i, --ignore-case     Case insensitive search.
+     -M, --multiline       Multi-line search.
+     --color {auto,always,never}
+                           Use color.
+
+   Typically this should be executed by a wrapper or shell alias.'
+
+   command line options:
+
+     Usage
+
+     Keys::
+     * Quit:       Ctrl-C
+     * Re-display: Ctrl-D
+
+     Special Input::
+     * ?:    Show the help message.
+
+     Filter Commands::
+     * :f    Text    - filters on text
+     * :p    Text    - filters on path
+     * :fr   Text    - filters on text with regex.
+     * :pr   Text    - filters on text with regex.
+
+     Note that adding a '-' character immediately after the command masks matches out.
+     eg:
+        :f- Foo
+     Remove all lines containing 'Foo'.
+
+     Other Commands::
+
+     * :u    Undoes the last filter command.
+
+
+.. END HELP TEXT
 
 
 Examples
