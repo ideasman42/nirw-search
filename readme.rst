@@ -26,7 +26,7 @@ This allows you to setup commands, typically one per language.
 
 Results are enumerated, typing a number opens the match and exists.
 
-Otherwise you can press ``?`` to see how you can refine your search.
+Otherwise you can press ``?`` to see how to refine your search.
 
 To see available command line options when executing the search command use ``--help``.
 
@@ -37,9 +37,10 @@ Regex expressions are used unless the ``--literal`` option is passed
 Example Wrapper
 ---------------
 
-At a minimum a wrapper must set the ``--include-files`` and ``--editor`` arguments, eg:
+At a minimum a wrapper must set the ``--include-files`` and ``--editor`` arguments,
+typically this is all thats needed unless you want to change the default behavior.
 
-Simple ``*.txt`` file searcher::
+Example of a simple ``*.txt`` file searcher::
 
    #!/bin/sh
    exec nirw-search \
@@ -93,7 +94,7 @@ Output of ``nirw-search --help``::
      -i, --ignore-case     Case insensitive search.
      -M, --multiline       Multi-line search.
      --color {auto,always,never}
-                           Use color.
+                           Color highlight matches.
 
    Typically this should be executed by a wrapper or shell alias.
 

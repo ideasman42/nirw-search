@@ -704,7 +704,7 @@ command line options:
         '--color',
         dest='color',
         default='auto',
-        help='Use color.',
+        help='Color highlight matches.',
         required=False,
         choices=['auto', 'always', 'never']
     )
