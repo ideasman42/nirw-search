@@ -49,8 +49,30 @@ Example of a simple ``*.txt`` file searcher::
        "$@"
 
 
+Example Usage
+-------------
+
+For example, you could use ``prep`` for Python, ``crep`` for C/C++ and ``cmrep`` for CMake files.
+
+Then you can search C source files by typing::
+
+   crep "some text"
+
+For case insensitive searches::
+
+   crep -i "other text"
+
+For multi-line searches::
+
+   crep -M "new\nline"
+
+For literal searches::
+
+   crep --literal "if (a > c - b[0]) {"
+
+
 Help Text
----------
+=========
 
 For typical usage you should not be entering a long list of command-line arguments,
 nevertheless there are times where you may want to change the default behavior.
@@ -125,28 +147,6 @@ Output of ``nirw-search --help``::
      * :u    Undoes the last filter command.
 
 .. END HELP TEXT
-
-
-Examples
-========
-
-For example, you could use ``prep`` for Python, ``crep`` for C/C++ and ``cmrep`` for CMake files.
-
-Then you can search C source files by typing::
-
-   crep "some text"
-
-For case insensitive searches::
-
-   crep -i "other text"
-
-For multi-line searches::
-
-   crep -M "new\nline"
-
-For literal searches::
-
-   crep --literal "if (a > c - b[0]) {"
 
 
 TODO
