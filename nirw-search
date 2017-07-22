@@ -173,7 +173,7 @@ Match = collections.namedtuple(
 def search_execute(search_path, include_files, search_regex):
     results = []
     for filepath in iter_files(search_path, include_files):
-        with open(filepath, 'r', encoding='utf-8', errors='surrogateescape') as f:
+        with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
             data = f.read()
             for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex, data):
                 results.append(Match(filepath, nr, l, ranges))
