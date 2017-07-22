@@ -216,9 +216,9 @@ def search_display_ex(results, is_multiline: bool, is_color: bool):
     '''
     write = sys.stdout.write
     if is_multiline:
-        format_str = '{}: {}:{}:\n{}\n'.format
+        format_str = '{} {}:{}:\n{}\n'.format
     else:
-        format_str = '{}: {}:{}: {}\n'.format
+        format_str = '{} {}:{}: {}\n'.format
 
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
         if is_color is True:
