@@ -780,18 +780,19 @@ command line options:
     )
 
     parser = argparse.ArgumentParser(
-        description=__doc__, epilog=epilog,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__,
+        epilog=epilog,
+        formatter_class=argparse.RawTextHelpFormatter
     )
 
     parser.add_argument(
         '--editor', dest='editor',
         metavar='EDITOR_COMMAND', required=True,
         help=(
-            'Command used to edit file and arguments '
-            'which will be passed to the editor: '
-            '{file}, {line}, {column} will be replaced with the '
-            'file-name, line number and column respectively.'
+            'Command used to edit file and arguments\n'
+            'which will be passed to the editor:\n'
+            '{file}, {line}, {column} will be replaced\n'
+            'with the file-name, line number and column respectively.'
         ),
     )
 
@@ -804,8 +805,8 @@ command line options:
         default=False,
         action='store_true',
         help=(
-            'Stay open after selecting a file, '
-            'pressing Ctrl-C resets a new search instead of exiting, '
+            'Stay open after selecting a file,\n'
+            'pressing Ctrl-C resets a new search instead of exiting,\n'
             'pressing twice exits.'
         ),
         required=False,
@@ -831,7 +832,7 @@ command line options:
         '--include-files', dest='include_files',
         metavar='INCLUDE_FILES', required=True,
         help=(
-            'Case insensitive regular expression matched against each file, '
+            'Case insensitive regular expression matched against each file,\n'
             'only search files that pass.'
         ),
     )
@@ -840,7 +841,7 @@ command line options:
         metavar='EXCLUDE_FILES', required=False,
         default='\\.',
         help=(
-            'Case insensitive regular expression matched against each file, '
+            'Case insensitive regular expression matched against each file,\n'
             'only search files that fail. '
             'Defaults to "\\." (skip hidden files).'
         ),
@@ -860,8 +861,8 @@ command line options:
         default=False,
         action='store_true',
         help=(
-            'Search for the literal string '
-            'instead of interpreting as a regex expression '
+            'Search for the literal string\n'
+            'instead of interpreting as a regex expression\n'
             '(only applies to arguments passed in via the command line).'
         ),
         required=False,
@@ -912,13 +913,13 @@ command line options:
     parser.add_argument(
         'search',
         help=(
-            'Text to search files for, '
-            'must be a regular expression unless --literal is passed. '
-            'If multiple search arguments are passed, '
-            'the results must match all (in any order). '
-            'If no search terms are given you will enter a prompt '
-            'where you can perform multiple searches. '
-            'This implicitly enables --persistent.'
+            'Text to search files for\n'
+            '(must be a regular expression unless --literal is passed).\n'
+            '\n'
+            'When multiple search arguments are passed,\n'
+            'the results must match all (in any order).\n\n'
+            'When no search terms are given --persistent mode is enabled\n'
+            'so you can perform multiple searches.'
         ),
         nargs='*',
     )

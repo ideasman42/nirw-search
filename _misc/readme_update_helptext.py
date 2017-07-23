@@ -4,6 +4,7 @@
 import os
 import subprocess
 import textwrap
+import re
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 
@@ -21,6 +22,9 @@ def main():
         p.stdout.decode('utf-8').rstrip() +
         '\n\n'
     )
+
+    # strip trailing space
+    help_output = re.sub(r'[ \t]+(\n|\Z)', r'\1', help_output)
     help_output = (
         '\nOutput of ``nirw-search --help``::\n\n' +
         textwrap.indent(help_output, '   ')

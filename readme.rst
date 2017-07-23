@@ -115,23 +115,25 @@ Output of ``nirw-search --help``::
    NIRW - nifty interactive regex wrangler.
 
    positional arguments:
-     search                Text to search files for, must be a regular expression
-                           unless --literal is passed. If multiple search
-                           arguments are passed, the results must match all (in
-                           any order). If no search terms are given you will
-                           enter a prompt where you can perform multiple
-                           searches. This implicitly enables --persistent.
+     search                Text to search files for
+                           (must be a regular expression unless --literal is passed).
+
+                           When multiple search arguments are passed,
+                           the results must match all (in any order).
+
+                           When no search terms are given --persistent mode is enabled
+                           so you can perform multiple searches.
 
    optional arguments:
      -h, --help            show this help message and exit
      --editor EDITOR_COMMAND
-                           Command used to edit file and arguments which will be
-                           passed to the editor: {file}, {line}, {column} will be
-                           replaced with the file-name, line number and column
-                           respectively.
-     --persistent          Stay open after selecting a file, pressing Ctrl-C
-                           resets a new search instead of exiting, pressing twice
-                           exits.
+                           Command used to edit file and arguments
+                           which will be passed to the editor:
+                           {file}, {line}, {column} will be replaced
+                           with the file-name, line number and column respectively.
+     --persistent          Stay open after selecting a file,
+                           pressing Ctrl-C resets a new search instead of exiting,
+                           pressing twice exits.
 
    filepath matching arguments:
      These options control which files are selected to be searched.
@@ -139,19 +141,18 @@ Output of ``nirw-search --help``::
      --search-path SEARCH_PATH
                            Path to search in, defaults to "." when not passed.
      --include-files INCLUDE_FILES
-                           Case insensitive regular expression matched against
-                           each file, only search files that pass.
+                           Case insensitive regular expression matched against each file,
+                           only search files that pass.
      --exclude-files EXCLUDE_FILES
-                           Case insensitive regular expression matched against
-                           each file, only search files that fail. Defaults to
-                           "\." (skip hidden files).
+                           Case insensitive regular expression matched against each file,
+                           only search files that fail. Defaults to "\." (skip hidden files).
 
    expression matching arguments:
      These options control how matching is performed
 
-     --literal             Search for the literal string instead of interpreting
-                           as a regex expression (only applies to arguments
-                           passed in via the command line).
+     --literal             Search for the literal string
+                           instead of interpreting as a regex expression
+                           (only applies to arguments passed in via the command line).
      -i, --ignore-case     Case insensitive search.
      -M, --multiline       Multi-line search.
 
