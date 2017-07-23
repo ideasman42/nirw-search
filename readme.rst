@@ -15,6 +15,25 @@ NIRW is a hackable text searching tool.
 - No configuration.
 
 
+Motivation
+==========
+
+There are many ways to search text files, so why add a new one?
+
+The main reason is I didn't find any existing solutions convenient,
+especially with multiple projects where I might want to launch different editors based on the language.
+
+Previously I'd been using a shell script that wrapped ``find`` and ``pcregrep``,
+it worked well but had some limitations.
+
+The main one being that I would often want to refine the search (search within the search).
+
+While this is possible with piping, it becomes cumbersome to keep editing the previous command.
+It also doesn't work for multi-line searches.
+
+This tool is meant to be quick and easy to perform searches, with minimum fuss.
+
+
 Usage
 =====
 
@@ -174,3 +193,4 @@ TODO
 
 - Multi-processing for regex matching.
 - Configurable encoding (currently only utf-8).
+- Tests.
