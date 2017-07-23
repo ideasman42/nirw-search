@@ -15,31 +15,35 @@ import cmd
 import shlex
 import re
 
-help_text = '''
-Usage
+help_text = '''\
+Keys:
 
-Keys::
-* Quit:       Ctrl-C
-* Re-display: Ctrl-D
+- Quit:       Ctrl-C
+- Re-display: Ctrl-D
 
-Special Input::
-* ?:    Show the help message.
+Special Input:
 
-Filter Commands::
-* :f    Text    - filters on text
-* :p    Text    - filters on path
-* :fr   Text    - filters on text with regex.
-* :pr   Text    - filters on path with regex.
+- ``?``:    Show the help message.
+
+Filter Commands:
+
+- ``:f    Text``    - filters on text
+- ``:p    Text``    - filters on path
+- ``:fr   Text``    - filters on text with regex.
+- ``:pr   Text``    - filters on path with regex.
 
 
 Adding a '-' character immediately after the command masks matches out.
-eg:
+
+eg::
+
    :f- Foo
+
 Remove all lines containing 'Foo'.
 
-Other Commands::
+Other Commands:
 
-* :u    Undoes the last filter command.
+- ``:u``    Undoes the last filter command.
 '''
 
 
@@ -773,7 +777,6 @@ def argparse_create():
 Typically this should be executed by a wrapper or shell alias.
 
 command line options:
-
 ''' +
         # Follow Python's --help display.
         textwrap.indent(help_text, '  ')
@@ -791,7 +794,7 @@ command line options:
         help=(
             'Command used to edit file and arguments\n'
             'which will be passed to the editor:\n'
-            '{file}, {line}, {column} will be replaced\n'
+            '``{file}``, ``{line}``, ``{column}`` will be replaced\n'
             'with the file-name, line number and column respectively.'
         ),
     )
@@ -891,6 +894,7 @@ command line options:
 
     parser_group = parser.add_argument_group(
         title='display arguments',
+        description='Control the search output.'
     )
     # Same as pcregrep.
     parser_group.add_argument(
@@ -913,12 +917,13 @@ command line options:
     parser.add_argument(
         'search',
         help=(
+            '\n'
             'Text to search files for\n'
-            '(must be a regular expression unless --literal is passed).\n'
+            '(must be a regular expression unless ``--literal`` is passed).\n'
             '\n'
             'When multiple search arguments are passed,\n'
             'the results must match all (in any order).\n\n'
-            'When no search terms are given --persistent mode is enabled\n'
+            'When no search terms are given ``--persistent`` mode is enabled\n'
             'so you can perform multiple searches.'
         ),
         nargs='*',

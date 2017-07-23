@@ -9,6 +9,19 @@ import re
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 
 
+def patch_help_test(help_output):
+    help_output = help_output.replace(
+        "usage: nirw-search",
+        "usage::\n"
+        "\n"
+        "       nirw-search",
+    )
+    help_output = help_output.replace(
+        "{auto,always,never}", "<auto,always,never>",
+    )
+    return help_output
+
+
 def main():
     p = subprocess.run(
         [
@@ -18,6 +31,7 @@ def main():
         ],
         stdout=subprocess.PIPE,
     )
+
     help_output = (
         p.stdout.decode('utf-8').rstrip() +
         '\n\n'
@@ -25,9 +39,14 @@ def main():
 
     # strip trailing space
     help_output = re.sub(r'[ \t]+(\n|\Z)', r'\1', help_output)
+
+    help_output = patch_help_test(help_output)
+
+    # Try write reStructuredText directly!
+    # help_output = textwrap.indent(help_output, '   ')
     help_output = (
-        '\nOutput of ``nirw-search --help``::\n\n' +
-        textwrap.indent(help_output, '   ')
+        '\nOutput of ``nirw-search --help``\n\n' +
+        help_output
     )
 
     with open('readme.rst', 'r', encoding='utf-8') as f:

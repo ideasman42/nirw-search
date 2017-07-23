@@ -103,92 +103,100 @@ nevertheless there are times where you may want to change the default behavior.
 
 .. BEGIN HELP TEXT
 
-Output of ``nirw-search --help``::
+Output of ``nirw-search --help``
 
-   usage: nirw-search [-h] --editor EDITOR_COMMAND [--persistent]
-                      [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
-                      [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
-                      [--color {auto,always,never}]
-                      [--progress {auto,always,never}]
-                      [search [search ...]]
+usage::
 
-   NIRW - nifty interactive regex wrangler.
+       nirw-search [-h] --editor EDITOR_COMMAND [--persistent]
+                   [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
+                   [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
+                   [--color <auto,always,never>]
+                   [--progress <auto,always,never>]
+                   [search [search ...]]
 
-   positional arguments:
-     search                Text to search files for
-                           (must be a regular expression unless --literal is passed).
+NIRW - nifty interactive regex wrangler.
 
-                           When multiple search arguments are passed,
-                           the results must match all (in any order).
+positional arguments:
+  search
+                        Text to search files for
+                        (must be a regular expression unless ``--literal`` is passed).
 
-                           When no search terms are given --persistent mode is enabled
-                           so you can perform multiple searches.
+                        When multiple search arguments are passed,
+                        the results must match all (in any order).
 
-   optional arguments:
-     -h, --help            show this help message and exit
-     --editor EDITOR_COMMAND
-                           Command used to edit file and arguments
-                           which will be passed to the editor:
-                           {file}, {line}, {column} will be replaced
-                           with the file-name, line number and column respectively.
-     --persistent          Stay open after selecting a file,
-                           pressing Ctrl-C resets a new search instead of exiting,
-                           pressing twice exits.
+                        When no search terms are given ``--persistent`` mode is enabled
+                        so you can perform multiple searches.
 
-   filepath matching arguments:
-     These options control which files are selected to be searched.
+optional arguments:
+  -h, --help            show this help message and exit
+  --editor EDITOR_COMMAND
+                        Command used to edit file and arguments
+                        which will be passed to the editor:
+                        ``{file}``, ``{line}``, ``{column}`` will be replaced
+                        with the file-name, line number and column respectively.
+  --persistent          Stay open after selecting a file,
+                        pressing Ctrl-C resets a new search instead of exiting,
+                        pressing twice exits.
 
-     --search-path SEARCH_PATH
-                           Path to search in, defaults to "." when not passed.
-     --include-files INCLUDE_FILES
-                           Case insensitive regular expression matched against each file,
-                           only search files that pass.
-     --exclude-files EXCLUDE_FILES
-                           Case insensitive regular expression matched against each file,
-                           only search files that fail. Defaults to "\." (skip hidden files).
+filepath matching arguments:
+  These options control which files are selected to be searched.
 
-   expression matching arguments:
-     These options control how matching is performed
+  --search-path SEARCH_PATH
+                        Path to search in, defaults to "." when not passed.
+  --include-files INCLUDE_FILES
+                        Case insensitive regular expression matched against each file,
+                        only search files that pass.
+  --exclude-files EXCLUDE_FILES
+                        Case insensitive regular expression matched against each file,
+                        only search files that fail. Defaults to "\." (skip hidden files).
 
-     --literal             Search for the literal string
-                           instead of interpreting as a regex expression
-                           (only applies to arguments passed in via the command line).
-     -i, --ignore-case     Case insensitive search.
-     -M, --multiline       Multi-line search.
+expression matching arguments:
+  These options control how matching is performed
 
-   display arguments:
-     --color {auto,always,never}
-                           Color highlight matches.
-     --progress {auto,always,never}
-                           Display the file currently being searched.
+  --literal             Search for the literal string
+                        instead of interpreting as a regex expression
+                        (only applies to arguments passed in via the command line).
+  -i, --ignore-case     Case insensitive search.
+  -M, --multiline       Multi-line search.
 
-   Typically this should be executed by a wrapper or shell alias.
+display arguments:
+  Control the search output.
 
-   command line options:
+  --color <auto,always,never>
+                        Color highlight matches.
+  --progress <auto,always,never>
+                        Display the file currently being searched.
 
-     Usage
+Typically this should be executed by a wrapper or shell alias.
 
-     Keys::
-     * Quit:       Ctrl-C
-     * Re-display: Ctrl-D
+command line options:
+  Keys:
 
-     Special Input::
-     * ?:    Show the help message.
+  - Quit:       Ctrl-C
+  - Re-display: Ctrl-D
 
-     Filter Commands::
-     * :f    Text    - filters on text
-     * :p    Text    - filters on path
-     * :fr   Text    - filters on text with regex.
-     * :pr   Text    - filters on path with regex.
+  Special Input:
 
-     Adding a '-' character immediately after the command masks matches out.
-     eg:
-        :f- Foo
-     Remove all lines containing 'Foo'.
+  - ``?``:    Show the help message.
 
-     Other Commands::
+  Filter Commands:
 
-     * :u    Undoes the last filter command.
+  - ``:f    Text``    - filters on text
+  - ``:p    Text``    - filters on path
+  - ``:fr   Text``    - filters on text with regex.
+  - ``:pr   Text``    - filters on path with regex.
+
+  Adding a '-' character immediately after the command masks matches out.
+
+  eg::
+
+     :f- Foo
+
+  Remove all lines containing 'Foo'.
+
+  Other Commands:
+
+  - ``:u``    Undoes the last filter command.
 
 .. END HELP TEXT
 
