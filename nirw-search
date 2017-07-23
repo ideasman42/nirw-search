@@ -160,11 +160,12 @@ class Config:
         'editor',
         'is_persistent',
         'is_multiline',
-        'is_color',
         'search_re_flags',
         'search_path',
         'include_files',
         'exclude_files',
+        'show_color',
+        'show_progress',
     )
 
     def __init__(self):
@@ -189,7 +190,14 @@ Match = collections.namedtuple(
 )
 
 
-def search_execute(search_path, include_files, exclude_files, search_regex_list, results_output):
+def search_execute(
+        search_path,
+        include_files,
+        exclude_files,
+        search_regex_list,
+        show_progress,
+        results_output,
+):
     '''
     Search files, output as generator and into 'results_output' list.
     This is done so we can display the output before its finished searching.
@@ -197,7 +205,19 @@ def search_execute(search_path, include_files, exclude_files, search_regex_list,
     search_regex_first = search_regex_list[0]
     search_regex_others_finditer = [re_other.finditer for re_other in search_regex_list[1:]]
     is_search_regex_multi = len(search_regex_list) > 1
+
+    if show_progress:
+        filepath_count = 0
+
     for filepath in iter_files(search_path, include_files, exclude_files):
+
+        if show_progress:
+            filepath_count += 1
+            sys.stdout.write('\033[K > {:<8}{}\r'.format(
+                filepath_count,
+                filepath,
+            ))
+
         with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
             data = f.read()
             for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex_first, data):
@@ -219,10 +239,14 @@ def search_execute(search_path, include_files, exclude_files, search_regex_list,
 
                 match_data = Match(filepath, nr, l, ranges)
                 results_output.append(match_data)
+
                 yield match_data
 
+    if show_progress:
+        sys.stdout.write('\033[K')
 
-def search_display_ex(results, is_multiline: bool, is_color: bool):
+
+def search_display_ex(results, is_multiline: bool, show_color: bool):
     '''
     Note that 'results' may be a generator.
     '''
@@ -233,13 +257,13 @@ def search_display_ex(results, is_multiline: bool, is_color: bool):
         format_str = '{} {}:{}: {}\n'.format
 
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
-        if is_color is True:
+        if show_color is True:
             text = string_color_ranges(text, ranges)
         write(format_str(i, filepath, line_number, text))
 
 
 def search_display(results: list, conf):
-    search_display_ex(results, conf.is_multiline, conf.is_color)
+    search_display_ex(results, conf.is_multiline, conf.show_color)
 
 
 def display_clear():
@@ -371,6 +395,7 @@ class SearchCmd(cmd.Cmd):
                 conf.include_files,
                 conf.exclude_files,
                 search_regex_list,
+                conf.show_progress,
                 results_new,
             ),
             conf,
@@ -554,7 +579,8 @@ def search_and_edit(
     is_persistent: bool,
     is_ignore_case: bool,
     is_multiline: bool,
-    is_color: bool,
+    show_color: bool,
+    show_progress: bool,
 ) -> None:
     '''
     :arg search_text: List of regex formatted strings.
@@ -565,7 +591,8 @@ def search_and_edit(
         after opening an editor or pressing Ctrl-C.
     :arg is_ignore_case: Ignore case when searching.
     :arg is_multiline: Search across multiple lines.
-    :arg is_color: Color highlight matches.
+    :arg show_color: Color highlight matches.
+    :arg show_progress: Show the file being searched.
     '''
     # -------------------------------------------------------------------------
     # Sanitize Input
@@ -624,7 +651,8 @@ def search_and_edit(
     conf.editor = editor
     conf.is_persistent = is_persistent
     conf.is_multiline = is_multiline
-    conf.is_color = is_color
+    conf.show_color = show_color
+    conf.show_progress = show_progress
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
     conf.include_files = include_files
@@ -643,6 +671,7 @@ def search_and_edit(
                 include_files,
                 exclude_files,
                 search_regex_list,
+                show_progress,
                 results,
             ),
             conf,
@@ -824,6 +853,14 @@ command line options:
         required=False,
         choices=['auto', 'always', 'never']
     )
+    parser_group.add_argument(
+        '--progress',
+        dest='progress',
+        default='auto',
+        help='Display the file currently being searched.',
+        required=False,
+        choices=['auto', 'always', 'never']
+    )
 
     parser.add_argument(
         'search',
@@ -852,12 +889,21 @@ def main():
     else:
         search_text = [t for t in args.search if t]
 
+    is_interactive = sys.stdout.isatty()
+
     if args.color == 'always':
-        is_color = True
+        show_color = True
     elif args.color == 'never':
-        is_color = False
+        show_color = False
     else:
-        is_color = sys.stdout.isatty()
+        show_color = is_interactive
+
+    if args.progress == 'always':
+        show_progress = True
+    elif args.progress == 'never':
+        show_progress = False
+    else:
+        show_progress = is_interactive
 
     search_and_edit(
         search_text,
@@ -868,7 +914,8 @@ def main():
         is_persistent=args.is_persistent,
         is_ignore_case=args.is_ignore_case,
         is_multiline=args.is_multiline,
-        is_color=is_color,
+        show_color=show_color,
+        show_progress=show_progress,
     )
 
 

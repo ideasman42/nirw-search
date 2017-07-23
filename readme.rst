@@ -9,6 +9,7 @@ NIRW is a hackable text searching tool.
 - One-off operation (search and open one of the results).
 - Optionally refine within the current search.
 - Highlights matches.
+- Displays search progress.
 - Tab auto-complete terms based on current results.
 - Simple command line for more advanced filtering.
 - Optional ignore-case and multi-line and literal (without regex) support.
@@ -108,6 +109,7 @@ Output of ``nirw-search --help``::
                       [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
                       [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
                       [--color {auto,always,never}]
+                      [--progress {auto,always,never}]
                       [search [search ...]]
 
    NIRW - nifty interactive regex wrangler.
@@ -156,6 +158,8 @@ Output of ``nirw-search --help``::
    display arguments:
      --color {auto,always,never}
                            Color highlight matches.
+     --progress {auto,always,never}
+                           Display the file currently being searched.
 
    Typically this should be executed by a wrapper or shell alias.
 
