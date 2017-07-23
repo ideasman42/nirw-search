@@ -32,7 +32,7 @@ Filter Commands::
 * :pr   Text    - filters on path with regex.
 
 
-Note that adding a '-' character immediately after the command masks matches out.
+Adding a '-' character immediately after the command masks matches out.
 eg:
    :f- Foo
 Remove all lines containing 'Foo'.
@@ -91,8 +91,10 @@ def iter_files(path, include_files, exclude_files):
         dirnames[:] = [d for d in sorted(dirnames) if not d[0] == '.']
         filenames = [
             f for f in filenames
-            if (include_files_match is None or include_files_match(f) is not None)
-            if (exclude_files_match is None or exclude_files_match(f) is None)
+            if (include_files_match is None or
+                include_files_match(f) is not None)
+            if (exclude_files_match is None or
+                exclude_files_match(f) is None)
         ]
         for filename in sorted(filenames):
             yield os.path.join(dirpath, filename)
@@ -203,7 +205,9 @@ def search_execute(
     This is done so we can display the output before its finished searching.
     '''
     search_regex_first = search_regex_list[0]
-    search_regex_others_finditer = [re_other.finditer for re_other in search_regex_list[1:]]
+    search_regex_others_finditer = [
+        re_other.finditer for re_other in search_regex_list[1:]
+    ]
     is_search_regex_multi = len(search_regex_list) > 1
 
     if show_progress:
@@ -218,15 +222,22 @@ def search_execute(
                 filepath,
             ))
 
-        with open(filepath, 'r', encoding='utf-8', errors='backslashreplace') as f:
+        with open(
+                filepath, 'r',
+                encoding='utf-8', errors='backslashreplace',
+        ) as f:
             data = f.read()
-            for (match, nr, l, ranges) in finditer_with_line_and_numbers(search_regex_first, data):
-
+            for (match, nr, l, ranges) in finditer_with_line_and_numbers(
+                    search_regex_first, data,
+            ):
                 if is_search_regex_multi:
                     for text_finditer in search_regex_others_finditer:
                         match_other = None
                         for match_other in text_finditer(l):
-                            ranges.append((match_other.start(), match_other.end()))
+                            ranges.append((
+                                match_other.start(),
+                                match_other.end(),
+                            ))
                         if match_other is None:
                             match = None
                             break
@@ -378,7 +389,9 @@ class SearchCmd(cmd.Cmd):
             if filter_args is None:
                 print('Command ":{}" contains unknown syntax!'.format(command))
                 return
-            SearchCmd._default_filter(conf, results, result_history, args, **filter_args)
+            SearchCmd._default_filter(
+                conf, results, result_history, args, **filter_args,
+            )
         else:
             print('Command ":{}" not known!'.format(command))
             return
@@ -420,7 +433,10 @@ class SearchCmd(cmd.Cmd):
         return None
 
     @staticmethod
-    def _default_filter(conf, results, result_history, line, is_regex=False, is_negate=False, is_path=False):
+    def _default_filter(
+            conf, results, result_history, line,
+            is_regex=False, is_negate=False, is_path=False,
+    ):
         '''
         Refine existing search (fallback when number isn't given).
         '''
@@ -435,7 +451,9 @@ class SearchCmd(cmd.Cmd):
 
         # Check we have a match
         try:
-            input_search = re.compile(line if is_regex else re.escape(line)).search
+            input_search = re.compile(
+                line if is_regex else re.escape(line)
+            ).search
         except Exception as ex:
             print('Invalid regular expression {}, error {}'.format(
                 pretty_quote(line),
@@ -458,7 +476,9 @@ class SearchCmd(cmd.Cmd):
                         ranges = match_data.ranges
                         ranges.append((match.start(), match.end()))
                         ranges.sort()
-                        match_data = match_data._replace(ranges=merge_ranges(ranges))
+                        match_data = match_data._replace(
+                            ranges=merge_ranges(ranges)
+                        )
                     results_new.append(match_data)
 
         if not results_new:
@@ -529,12 +549,18 @@ class SearchCmd(cmd.Cmd):
                 return
             return self._default_number(self.conf, self.results, num)
         elif line.startswith(':'):
-            return self._default_command(self.conf, self.results, self.result_history, line)
+            return self._default_command(
+                self.conf, self.results, self.result_history, line,
+            )
         else:
             if self.results:
-                return self._default_filter(self.conf, self.results, self.result_history, line)
+                return self._default_filter(
+                    self.conf, self.results, self.result_history, line,
+                )
             else:
-                return self._default_search(self.conf, self.results, self.result_history, line)
+                return self._default_search(
+                    self.conf, self.results, self.result_history, line,
+                )
 
     def completedefault(self, text, line, begidx, endidx):
         try:
@@ -547,7 +573,8 @@ class SearchCmd(cmd.Cmd):
                     return []
                 elif command[0] in {'f', 'p'}:
                     filter_args = parse_filter_from_command(command)
-                    assert(filter_args is not None)  # checked in the 'if' statement
+                    # checked in the 'if' statement
+                    assert(filter_args is not None)
                     return self._complete_from_results(
                         self.results, text, line, begidx, endidx,
                         is_path=filter_args['is_path'],
@@ -565,7 +592,9 @@ class SearchCmd(cmd.Cmd):
         not just commands.
         '''
         try:
-            return self._complete_from_results(self.results, text, line, begidx, endidx, is_path=False)
+            return self._complete_from_results(
+                self.results, text, line, begidx, endidx, is_path=False,
+            )
         except:
             import traceback
             traceback.print_exc()
@@ -645,13 +674,17 @@ def search_and_edit(
             return
 
     if not os.path.exists(search_path):
-        print('Search path "--search-path {}", does not exist, abort!'.format(
+        print((
+            'Search path "--search-path {}", '
+            'does not exist, abort!').format(
             pretty_quote(search_path),
         ))
         return
 
     if not os.path.isdir(search_path):
-        print('Search path "--search-path {}", is not a directory, abort!'.format(
+        print((
+            'Search path "--search-path {}", '
+            'is not a directory, abort!').format(
             pretty_quote(search_path),
         ))
         return
@@ -781,7 +814,9 @@ command line options:
 
     parser_group = parser.add_argument_group(
         title='filepath matching arguments',
-        description='These options control which files are selected to be searched.'
+        description=(
+            'These options control which files are selected to be searched.'
+        ),
     )
 
     parser_group.add_argument(
@@ -823,7 +858,8 @@ command line options:
         default=False,
         action='store_true',
         help=(
-            'Search for the literal string instead of interpreting as a regex expression '
+            'Search for the literal string '
+            'instead of interpreting as a regex expression '
             '(only applies to arguments passed in via the command line).'
         ),
         required=False,

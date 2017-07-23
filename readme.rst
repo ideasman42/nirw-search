@@ -180,7 +180,7 @@ Output of ``nirw-search --help``::
      * :fr   Text    - filters on text with regex.
      * :pr   Text    - filters on path with regex.
 
-     Note that adding a '-' character immediately after the command masks matches out.
+     Adding a '-' character immediately after the command masks matches out.
      eg:
         :f- Foo
      Remove all lines containing 'Foo'.
