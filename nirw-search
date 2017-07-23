@@ -661,12 +661,17 @@ def search_and_edit(
         print('No search text given, entering persistent mode.')
         is_persistent = True
 
-    include_files = re_compile_or_none(include_files, "--include-files")
+    # We might want to optionally use case sensitive path checks.
+    include_files = re_compile_or_none(
+        include_files, "--include-files", re.IGNORECASE,
+    )
     if include_files is None:
         return
 
     if exclude_files:
-        exclude_files = re_compile_or_none(exclude_files, "--exclude-files")
+        exclude_files = re_compile_or_none(
+            exclude_files, "--exclude-files", re.IGNORECASE,
+        )
         if exclude_files is None:
             return
 
@@ -826,7 +831,7 @@ command line options:
         '--include-files', dest='include_files',
         metavar='INCLUDE_FILES', required=True,
         help=(
-            'Regular expression matched against each file, '
+            'Case insensitive regular expression matched against each file, '
             'only search files that pass.'
         ),
     )
@@ -835,7 +840,7 @@ command line options:
         metavar='EXCLUDE_FILES', required=False,
         default='\\.',
         help=(
-            'Regular expression matched against each file, '
+            'Case insensitive regular expression matched against each file, '
             'only search files that fail. '
             'Defaults to "\\." (skip hidden files).'
         ),

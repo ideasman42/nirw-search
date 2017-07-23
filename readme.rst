@@ -139,12 +139,12 @@ Output of ``nirw-search --help``::
      --search-path SEARCH_PATH
                            Path to search in, defaults to "." when not passed.
      --include-files INCLUDE_FILES
-                           Regular expression matched against each file, only
-                           search files that pass.
+                           Case insensitive regular expression matched against
+                           each file, only search files that pass.
      --exclude-files EXCLUDE_FILES
-                           Regular expression matched against each file, only
-                           search files that fail. Defaults to "\." (skip hidden
-                           files).
+                           Case insensitive regular expression matched against
+                           each file, only search files that fail. Defaults to
+                           "\." (skip hidden files).
 
    expression matching arguments:
      These options control how matching is performed
