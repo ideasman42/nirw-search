@@ -140,6 +140,18 @@ def string_color_ranges(text, ranges):
     return ''.join(text_split)
 
 
+def pretty_quote(text):
+    '''
+    Only use for error messages to give clear output,
+    ``shlex.quote`` that ensures we get quotations.
+    '''
+    text = shlex.quote(text)
+    if text[0] in '\'"':
+        return text
+    else:
+        return '\'{}\''.format(text)
+
+
 # -----------------------------------------------------------------------------
 # Config Storage
 
@@ -306,7 +318,7 @@ class SearchCmd(cmd.Cmd):
         subprocess.run(editor_args, shell=True)
         if conf.is_persistent:
             return None
-        # stop!
+        # Stop!
         return True
 
     @staticmethod
@@ -345,8 +357,8 @@ class SearchCmd(cmd.Cmd):
             search_regex_list = [re.compile(line)]
         except Exception as ex:
             print('Invalid regular expression {}, error {}'.format(
-                shlex.quote(line),
-                shlex.quote(str(ex)),
+                pretty_quote(line),
+                pretty_quote(str(ex)),
             ))
             return None
 
@@ -368,14 +380,16 @@ class SearchCmd(cmd.Cmd):
         del results_new
         if not results:
             print('No results for {} in {}'.format(
-                shlex.quote(line),
-                shlex.quote(conf.search_path),
+                pretty_quote(line),
+                pretty_quote(conf.search_path),
             ))
         return None
 
     @staticmethod
     def _default_filter(conf, results, result_history, line, is_regex=False, is_negate=False, is_path=False):
-        # print('Not a number')
+        '''
+        Refine existing search (fallback when number isn't given).
+        '''
         print(
             'Filtering{} {}: {}'.format(
                 ' out' if is_negate else '',
@@ -390,8 +404,8 @@ class SearchCmd(cmd.Cmd):
             input_search = re.compile(line if is_regex else re.escape(line)).search
         except Exception as ex:
             print('Invalid regular expression {}, error {}'.format(
-                shlex.quote(line),
-                shlex.quote(str(ex)),
+                pretty_quote(line),
+                pretty_quote(str(ex)),
             ))
             return None
 
@@ -547,6 +561,11 @@ def search_and_edit(
     :arg search_path: Root directory for searching.
     :arg include_files: Regex formatted string to match files against.
     :arg editor: Editor command and arguments.
+    :arg is_persistent: Keep the command prompt open
+        after opening an editor or pressing Ctrl-C.
+    :arg is_ignore_case: Ignore case when searching.
+    :arg is_multiline: Search across multiple lines.
+    :arg is_color: Color highlight matches.
     '''
     # -------------------------------------------------------------------------
     # Sanitize Input
@@ -557,49 +576,47 @@ def search_and_edit(
     if is_multiline:
         search_re_flags |= re.MULTILINE
 
+    def re_compile_or_none(expr, arg_id, flags=0):
+        try:
+            return re.compile(expr, flags)
+        except Exception as ex:
+            print('Failed to parse regex {} {}, error {}, abort!'.format(
+                arg_id,
+                pretty_quote(expr),
+                pretty_quote(str(ex)),
+            ))
+            return None
+
     search_regex_list = []
     if search_text:
         for t in search_text:
-            try:
-                search_regex_list.append(re.compile(t, search_re_flags))
-            except Exception as ex:
-                print('Failed to parse search text {}, error {}, abort!'.format(
-                    shlex.quote(t),
-                    shlex.quote(str(ex)),
-                ))
+            search_regex_list.append(
+                re_compile_or_none(t, "search text", search_re_flags)
+            )
+            if search_regex_list[-1] is None:
                 return
     else:
         print('No search text given, entering persistent mode.')
         is_persistent = True
 
-    try:
-        include_files = re.compile(include_files)
-    except Exception as ex:
-        print('Failed to parse "--include-files {}", error {}, abort!'.format(
-            include_files,
-            shlex.quote(ex),
-        ))
+    include_files = re_compile_or_none(include_files, "--include-files")
+    if include_files is None:
         return
 
     if exclude_files:
-        try:
-            exclude_files = re.compile(exclude_files)
-        except Exception as ex:
-            print('Failed to parse "--exclude-files {}", error {}, abort!'.format(
-                exclude_files,
-                shlex.quote(ex),
-            ))
+        exclude_files = re_compile_or_none(exclude_files, "--exclude-files")
+        if exclude_files is None:
             return
 
     if not os.path.exists(search_path):
         print('Search path "--search-path {}", does not exist, abort!'.format(
-            shlex.quote(search_path),
+            pretty_quote(search_path),
         ))
         return
 
     if not os.path.isdir(search_path):
         print('Search path "--search-path {}", is not a directory, abort!'.format(
-            shlex.quote(search_path),
+            pretty_quote(search_path),
         ))
         return
 
@@ -634,8 +651,8 @@ def search_and_edit(
     if not results:
         if not is_persistent:
             print('No results for [{}] in {}, exiting!'.format(
-                ', '.join([shlex.quote(t) for t in search_text]),
-                shlex.quote(conf.search_path),
+                ', '.join([pretty_quote(t) for t in search_text]),
+                pretty_quote(conf.search_path),
             ))
 
             return
@@ -698,7 +715,8 @@ command line options:
         '--editor', dest='editor',
         metavar='EDITOR_COMMAND', required=True,
         help=(
-            'Command used to edit file and arguments which will be passed to the editor: '
+            'Command used to edit file and arguments '
+            'which will be passed to the editor: '
             '{file}, {line}, {column} will be replaced with the '
             'file-name, line number and column respectively.'
         ),
@@ -737,14 +755,18 @@ command line options:
     parser_group.add_argument(
         '--include-files', dest='include_files',
         metavar='INCLUDE_FILES', required=True,
-        help='Regular expression matched against each file, only search files that pass.',
+        help=(
+            'Regular expression matched against each file, '
+            'only search files that pass.'
+        ),
     )
     parser_group.add_argument(
         '--exclude-files', dest='exclude_files',
         metavar='EXCLUDE_FILES', required=False,
         default='\\.',
         help=(
-            'Regular expression matched against each file, only search files that fail. '
+            'Regular expression matched against each file, '
+            'only search files that fail. '
             'Defaults to "\\." (skip hidden files).'
         ),
     )
@@ -811,7 +833,8 @@ command line options:
             'If multiple search arguments are passed, '
             'the results must match all (in any order). '
             'If no search terms are given you will enter a prompt '
-            'where you can perform multiple searches. This implicitly enables --persistent.'
+            'where you can perform multiple searches. '
+            'This implicitly enables --persistent.'
         ),
         nargs='*',
     )
@@ -851,7 +874,7 @@ def main():
 
 if __name__ == '__main__':
     # Even though we catch this during command line loop,
-    # but support exiting during search (without a stack trace).
+    # support exiting during search (without a stack trace).
     try:
         main()
     except KeyboardInterrupt:
