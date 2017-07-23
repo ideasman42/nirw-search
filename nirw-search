@@ -268,7 +268,11 @@ def search_display(results: list, conf):
 
 def display_clear():
     import subprocess
-    subprocess.run(['tput', 'reset'])
+    if os.name == 'nt':
+        command = ['cls']
+    else:
+        command = ['tput', 'reset']
+    subprocess.run(command)
 
 
 def display_clear_line():
