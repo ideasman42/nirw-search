@@ -271,6 +271,11 @@ def display_clear():
     subprocess.run(['tput', 'reset'])
 
 
+def display_clear_line():
+    sys.stdout.write('\r\033[K')
+    sys.stdout.flush()
+
+
 def parse_command_args_from_line(line: str) -> (str, str):
     '''
     Return command and arguments.
@@ -707,9 +712,9 @@ def search_and_edit(
                 intro=intro,
             )
         except KeyboardInterrupt:
+            print()
             if conf.is_persistent and (cmd.lastcmd != '' or results):
                 intro = (
-                    '\n'
                     'Resetting search (Ctrl-C pressed in persistent mode),\n'
                     'Start a new search or press again to exit:'
                 )
@@ -925,4 +930,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
+        display_clear_line()
         print('Keyboard interrupt, abort!')
