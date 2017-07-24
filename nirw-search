@@ -50,11 +50,12 @@ Other Commands:
 # -----------------------------------------------------------------------------
 # General Utilities
 
-def finditer_with_line_and_numbers(pattern, string, flags=0):
+def finditer_with_line_and_numbers(pattern, string):
     '''
-    A version of 're.finditer' that returns line number pairs.
+    A version of 're.finditer' that returns;
+    (line, content, range) triplets.
     '''
-    matches = list(re.finditer(pattern, string, flags))
+    matches = list(pattern.finditer(string))
     if not matches:
         return []
 
@@ -68,17 +69,20 @@ def finditer_with_line_and_numbers(pattern, string, flags=0):
             break
         newline_table[offset] = i
 
+    string_find = string.find
+    string_rfind = string.rfind
+
     # Failing to find the newline is OK, -1 maps to 0 above.
     for m in matches:
         m_start = m.start()
         m_end = m.end()
-        newline_offset = string.rfind('\n', 0, m_start)
-        newline_end = string.find('\n', m_end)
+        newline_offset = string_rfind('\n', 0, m_start)
+        newline_end = string_find('\n', m_end)
         content_offset = newline_offset + 1
         content = string[content_offset:newline_end]
         yield (
-            # the match
-            m,
+            # match, in fact we don't need it.
+            # m,
             # the line number
             newline_table[newline_offset],
             # actual text
@@ -197,8 +201,8 @@ def search_execute(
         search_path,
         include_files,
         exclude_files,
-        search_regex_list,
         show_progress,
+        search_regex_list,
         results_output,
 ):
     '''
@@ -227,25 +231,22 @@ def search_execute(
         with open(
                 filepath, 'r',
                 encoding='utf-8', errors='backslashreplace',
-        ) as f:
-            data = f.read()
-            for (match, nr, l, ranges) in finditer_with_line_and_numbers(
+        ) as fh:
+            data = fh.read()
+            for (nr, l, ranges) in finditer_with_line_and_numbers(
                     search_regex_first, data,
             ):
                 if is_search_regex_multi:
                     for text_finditer in search_regex_others_finditer:
                         match_other = None
                         for match_other in text_finditer(l):
-                            ranges.append((
-                                match_other.start(),
-                                match_other.end(),
-                            ))
+                            ranges.append(match_other.span())
                         if match_other is None:
-                            match = None
+                            l = None
                             break
                     # failed to find one of 'search_regex_list'
                     # continue
-                    if match is None:
+                    if l is None:
                         continue
                     ranges.sort()
                     ranges[:] = merge_ranges(ranges)
@@ -422,8 +423,8 @@ class SearchCmd(cmd.Cmd):
                 conf.search_path,
                 conf.include_files,
                 conf.exclude_files,
-                search_regex_list,
                 conf.show_progress,
+                search_regex_list,
                 results_new,
             ),
             conf,
@@ -723,8 +724,8 @@ def search_and_edit(
                 search_path,
                 include_files,
                 exclude_files,
-                search_regex_list,
                 show_progress,
+                search_regex_list,
                 results,
             ),
             conf,
