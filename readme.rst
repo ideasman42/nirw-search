@@ -19,7 +19,7 @@ NIRW is a hackable text searching tool.
 Motivation
 ==========
 
-There are many ways to search text files, so why add a new one?
+There are many ways to search text files, why add a new one?
 
 The main reason is I didn't find any existing solutions convenient,
 especially with multiple projects where I might want to launch different editors based on the language.
@@ -46,7 +46,7 @@ This allows you to setup commands, typically one per language.
 
 Results are enumerated, typing a number opens the match and exists.
 
-Otherwise you can press ``?`` to see how to refine your search.
+Otherwise you can type in terms to further refine your search or press ``?`` for help.
 
 To see available command line options when executing the search command use ``--help``.
 
