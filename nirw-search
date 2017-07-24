@@ -213,13 +213,13 @@ def search_execute(
 
     if show_progress:
         filepath_count = 0
-        write = sys.stdout.write
+        stdout_write = sys.stdout.write
 
     for filepath in iter_files(search_path, include_files, exclude_files):
 
         if show_progress:
             filepath_count += 1
-            write('\033[K > {:<8}{}\r'.format(
+            stdout_write('\033[K > {:<8}{}\r'.format(
                 filepath_count,
                 filepath,
             ))
@@ -255,19 +255,19 @@ def search_execute(
 
                 if show_progress:
                     # Tab characters can leave screen junk occasionally.
-                    write('\033[K')
+                    stdout_write('\033[K')
 
                 yield match_data
 
     if show_progress:
-        write('\033[K')
+        stdout_write('\033[K')
 
 
 def search_display_ex(results, is_multiline: bool, show_color: bool):
     '''
     Note that 'results' may be a generator.
     '''
-    write = sys.stdout.write
+    stdout_write = sys.stdout.write
     if is_multiline:
         format_str = '{} {}:{}:\n{}\n'.format
     else:
@@ -276,7 +276,7 @@ def search_display_ex(results, is_multiline: bool, show_color: bool):
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
         if show_color is True:
             text = string_color_ranges(text, ranges)
-        write(format_str(i, filepath, line_number, text))
+        stdout_write(format_str(i, filepath, line_number, text))
 
 
 def search_display(results: list, conf):
