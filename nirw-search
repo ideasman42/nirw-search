@@ -213,12 +213,13 @@ def search_execute(
 
     if show_progress:
         filepath_count = 0
+        write = sys.stdout.write
 
     for filepath in iter_files(search_path, include_files, exclude_files):
 
         if show_progress:
             filepath_count += 1
-            sys.stdout.write('\033[K > {:<8}{}\r'.format(
+            write('\033[K > {:<8}{}\r'.format(
                 filepath_count,
                 filepath,
             ))
@@ -252,10 +253,14 @@ def search_execute(
                 match_data = Match(filepath, nr, l, ranges)
                 results_output.append(match_data)
 
+                if show_progress:
+                    # Tab characters can leave screen junk occasionally.
+                    write('\033[K')
+
                 yield match_data
 
     if show_progress:
-        sys.stdout.write('\033[K')
+        write('\033[K')
 
 
 def search_display_ex(results, is_multiline: bool, show_color: bool):
