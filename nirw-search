@@ -131,7 +131,7 @@ def merge_ranges(ranges):
     return result
 
 
-def string_color_ranges(text, ranges):
+def string_color_ranges(text, ranges, color_pair):
     '''
     Ranges need to be a list of min, max's
     (sorted by max, largest first, must be non-overlapping)
@@ -143,9 +143,9 @@ def string_color_ranges(text, ranges):
     for range_start, range_end in ranges:
         text_split.extend([
             text[last:range_start],
-            color_start,
+            color_pair[0],
             text[range_start:range_end],
-            color_end,
+            color_pair[1],
         ])
         last = range_end
     text_split.append(text[last:])
@@ -178,6 +178,7 @@ class Config:
         'exclude_files',
         'show_color',
         'show_progress',
+        'color_pair',
     )
 
 
@@ -266,7 +267,12 @@ def search_execute(
         stdout_write('\033[K')
 
 
-def search_display_ex(results, is_multiline: bool, show_color: bool):
+def search_display_ex(
+        results,
+        is_multiline: bool,
+        show_color: bool,
+        color_pair: tuple,
+):
     '''
     Note that 'results' may be a generator.
     '''
@@ -278,12 +284,17 @@ def search_display_ex(results, is_multiline: bool, show_color: bool):
 
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
         if show_color is True:
-            text = string_color_ranges(text, ranges)
+            text = string_color_ranges(text, ranges, color_pair)
         stdout_write(format_str(i, filepath, line_number, text))
 
 
 def search_display(results: list, conf):
-    search_display_ex(results, conf.is_multiline, conf.show_color)
+    search_display_ex(
+        results,
+        conf.is_multiline,
+        conf.show_color,
+        conf.color_pair,
+    )
 
 
 def display_clear():
@@ -627,6 +638,7 @@ def search_and_edit(
     is_ignore_case: bool,
     is_multiline: bool,
     show_color: bool,
+    color_pair: tuple,
     show_progress: bool,
 ) -> None:
     '''
@@ -713,6 +725,8 @@ def search_and_edit(
     conf.search_path = search_path
     conf.include_files = include_files
     conf.exclude_files = exclude_files
+    conf.color_pair = color_pair
+
 
     # -------------------------------------------------------------------------
     # Search
@@ -914,6 +928,18 @@ command line options:
         choices=['auto', 'always', 'never']
     )
     parser_group.add_argument(
+        '--color-reverse',
+        dest='is_color_reverse',
+        help=(
+            'Inverse highlight color '
+            '(for improved white space highlighting).'
+        ),
+        action='store_true',
+        default=False,
+        required=False,
+    )
+
+    parser_group.add_argument(
         '--progress',
         dest='progress',
         default='auto',
@@ -959,6 +985,11 @@ def main():
     else:
         show_color = is_interactive
 
+    color_pair = '\033[92m', '\033[0m',
+
+    if args.is_color_reverse:
+        color_pair = (color_pair[0] + '\033[7m'), color_pair[1]
+
     if args.progress == 'always':
         show_progress = True
     elif args.progress == 'never':
@@ -976,6 +1007,7 @@ def main():
         is_ignore_case=args.is_ignore_case,
         is_multiline=args.is_multiline,
         show_color=show_color,
+        color_pair=color_pair,
         show_progress=show_progress,
     )
 

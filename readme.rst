@@ -110,7 +110,7 @@ usage::
        nirw-search [-h] --editor EDITOR_COMMAND [--persistent]
                    [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
                    [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
-                   [--color <auto,always,never>]
+                   [--color <auto,always,never>] [--color-reverse]
                    [--progress <auto,always,never>]
                    [search [search ...]]
 
@@ -164,6 +164,7 @@ display arguments:
 
   --color <auto,always,never>
                         Color highlight matches.
+  --color-reverse       Inverse highlight color (for improved white space highlighting).
   --progress <auto,always,never>
                         Display the file currently being searched.
 
