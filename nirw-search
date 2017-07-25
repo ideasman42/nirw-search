@@ -78,6 +78,8 @@ def finditer_with_line_and_numbers(pattern, string):
         m_end = m.end()
         newline_offset = string_rfind('\n', 0, m_start)
         newline_end = string_find('\n', m_end)
+        if newline_end == -1:
+            newline_end = len(string)
         content_offset = newline_offset + 1
         content = string[content_offset:newline_end]
         yield (
