@@ -552,9 +552,13 @@ class SearchCmd(cmd.Cmd):
         else:
             SearchCmd.prompt = '(search-new) '
 
+    def precmd(self, line):
+        SearchCmd.is_lastcmd_exit = False
+        return line
+
     def postcmd(self, stop, line):
-        # Set the prompt
         if not stop:
+            # Set the prompt
             self._refresh_prompt()
         return stop
 
@@ -761,6 +765,8 @@ def search_and_edit(
     SearchCmd.conf = conf
     SearchCmd.results = results
     SearchCmd.result_history = result_history
+    SearchCmd.is_lastcmd_exit = False
+
     if results:
         intro = 'Enter a number or text to filter'
     else:
@@ -779,7 +785,10 @@ def search_and_edit(
                 intro=intro,
             )
         except KeyboardInterrupt:
-            if conf.is_persistent and (cmd.lastcmd != '' or results):
+            if conf.is_persistent and SearchCmd.is_lastcmd_exit is False:
+                # again breaks
+                SearchCmd.is_lastcmd_exit = True
+
                 intro = (
                     'Resetting search (Ctrl-C pressed in persistent mode),\n'
                     'Start a new search or press again to exit:'
