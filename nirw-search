@@ -372,7 +372,7 @@ class SearchCmd(cmd.Cmd):
 
         filepath = shlex.quote(match_data.filepath)
         line_number = str(match_data.line_number + 1)
-        column = str(match_data.ranges[0][0])
+        column = str(match_data.ranges[0][0] + 1)
 
         editor_args = conf.editor
         editor_args = editor_args.replace('{file}', filepath)
