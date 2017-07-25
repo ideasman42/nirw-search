@@ -554,7 +554,9 @@ class SearchCmd(cmd.Cmd):
 
     def postcmd(self, stop, line):
         # Set the prompt
-        self._refresh_prompt()
+        if not stop:
+            self._refresh_prompt()
+        return stop
 
     def default(self, line):
         try:
@@ -777,7 +779,6 @@ def search_and_edit(
                 intro=intro,
             )
         except KeyboardInterrupt:
-            print()
             if conf.is_persistent and (cmd.lastcmd != '' or results):
                 intro = (
                     'Resetting search (Ctrl-C pressed in persistent mode),\n'
@@ -787,7 +788,10 @@ def search_and_edit(
                 SearchCmd.result_history.clear()
                 continue
             else:
-                return
+                break
+
+        if not conf.is_persistent:
+            break
 
 
 def argparse_create():
