@@ -785,6 +785,7 @@ def search_and_edit(
                 intro=intro,
             )
         except KeyboardInterrupt:
+            display_clear_line()
             if conf.is_persistent and SearchCmd.is_lastcmd_exit is False:
                 # again breaks
                 SearchCmd.is_lastcmd_exit = True
