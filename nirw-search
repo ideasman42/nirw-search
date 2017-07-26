@@ -207,6 +207,7 @@ def search_execute(
         show_progress,
         search_regex_list,
         results_output,
+        errors_output,
 ):
     '''
     Search files, output as generator and into 'results_output' list.
@@ -231,37 +232,43 @@ def search_execute(
                 filepath,
             ))
 
-        with open(
-                filepath, 'r',
-                encoding='utf-8', errors='backslashreplace',
-        ) as fh:
-            data = fh.read()
-            for (nr, l, ranges) in finditer_with_line_and_numbers(
-                    search_regex_first, data,
-            ):
-                if is_search_regex_multi:
-                    for text_finditer in search_regex_others_finditer:
-                        match_other = None
-                        for match_other in text_finditer(l):
-                            ranges.append(match_other.span())
-                        if match_other is None:
-                            l = None
-                            break
-                    # failed to find one of 'search_regex_list'
-                    # continue
-                    if l is None:
-                        continue
-                    ranges.sort()
-                    ranges[:] = merge_ranges(ranges)
+        try:
+            with open(
+                    filepath, 'r',
+                    encoding='utf-8', errors='backslashreplace',
+            ) as fh:
+                data = fh.read()
+        except Exception as ex:
+            # display after results
+            errors_output.append(str(ex))
+            continue
 
-                match_data = Match(filepath, nr, l, ranges)
-                results_output.append(match_data)
+        for (nr, l, ranges) in finditer_with_line_and_numbers(
+                search_regex_first, data,
+        ):
+            if is_search_regex_multi:
+                for text_finditer in search_regex_others_finditer:
+                    match_other = None
+                    for match_other in text_finditer(l):
+                        ranges.append(match_other.span())
+                    if match_other is None:
+                        l = None
+                        break
+                # failed to find one of 'search_regex_list'
+                # continue
+                if l is None:
+                    continue
+                ranges.sort()
+                ranges[:] = merge_ranges(ranges)
 
-                if show_progress:
-                    # Tab characters can leave screen junk occasionally.
-                    stdout_write('\033[K')
+            match_data = Match(filepath, nr, l, ranges)
+            results_output.append(match_data)
 
-                yield match_data
+            if show_progress:
+                # Tab characters can leave screen junk occasionally.
+                stdout_write('\033[K')
+
+            yield match_data
 
     if show_progress:
         stdout_write('\033[K')
@@ -295,6 +302,14 @@ def search_display(results: list, conf):
         conf.show_color,
         conf.color_pair,
     )
+
+
+def errors_display(errors: list):
+    stdout_write = sys.stdout.write
+    stdout_write('Error(s) occurred:\n')
+    format_str = '{}\n'.format
+    for err in errors:
+        stdout_write(format_str(err))
 
 
 def display_clear():
@@ -431,6 +446,7 @@ class SearchCmd(cmd.Cmd):
         # Fill new list incase the user presses Ctrl-C
         # while searching - don't leave in an invalid state.
         results_new = []
+        errors_new = []
         search_display(
             search_execute(
                 conf.search_path,
@@ -439,9 +455,14 @@ class SearchCmd(cmd.Cmd):
                 conf.show_progress,
                 search_regex_list,
                 results_new,
+                errors_new,
             ),
             conf,
         )
+        if errors_new:
+            errors_display(errors_new)
+        del errors_new
+
         SearchCmd.result_history.append(results[:])
         results[:] = results_new
         del results_new
@@ -733,11 +754,11 @@ def search_and_edit(
     conf.exclude_files = exclude_files
     conf.color_pair = color_pair
 
-
     # -------------------------------------------------------------------------
     # Search
 
     results = []
+    errors = []
     result_history = []
 
     if search_text:
@@ -749,9 +770,13 @@ def search_and_edit(
                 show_progress,
                 search_regex_list,
                 results,
+                errors,
             ),
             conf,
         )
+        if errors:
+            errors_display(errors)
+        del errors
 
     if not results:
         if not is_persistent:
