@@ -3,7 +3,7 @@
 Nifty Interactive Regex Wrangler
 ********************************
 
-NIRW is a hackable text searching tool.
+NIRW is a convenient, command-line text search tool.
 
 - Recursively searches from the current directly by default.
 - One-off operation (search and open one of the results).
@@ -21,7 +21,7 @@ Motivation
 
 There are many ways to search text files, why add a new one?
 
-The main reason is I didn't find any existing solutions convenient,
+The main reason is I didn't find any existing solutions convenient for day-to-day usage,
 especially with multiple projects where I might want to launch different editors based on the language.
 
 Previously I'd been using a shell script that wrapped ``find`` and ``pcregrep``,
