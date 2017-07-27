@@ -136,16 +136,15 @@ def string_color_ranges(text, ranges, color_pair):
     Ranges need to be a list of min, max's
     (sorted by max, largest first, must be non-overlapping)
     '''
-    color_start = '\033[92m'
-    color_end = '\033[0m'
+    color_start, color_end = color_pair
     last = 0
     text_split = []
     for range_start, range_end in ranges:
         text_split.extend([
             text[last:range_start],
-            color_pair[0],
+            color_start,
             text[range_start:range_end],
-            color_pair[1],
+            color_end,
         ])
         last = range_end
     text_split.append(text[last:])
@@ -185,8 +184,7 @@ class Config:
 # -----------------------------------------------------------------------------
 # Local
 
-import collections
-Match = collections.namedtuple(
+Match = __import__('collections').namedtuple(
     'Match', [
         # string (filepath)
         'filepath',
