@@ -163,6 +163,17 @@ def pretty_quote(text):
         return '\'{}\''.format(text)
 
 
+def namedtuple_singleton(name, **kwargs):
+    '''
+    Create a single type and its values.
+    For read-only module like singletons.
+    '''
+    from collections import namedtuple
+    keys = tuple(sorted(kwargs.keys()))
+    cls = __import__('collections').namedtuple(name, keys)
+    return cls(**kwargs)
+
+
 # -----------------------------------------------------------------------------
 # Config Storage
 
@@ -197,6 +208,14 @@ Match = __import__('collections').namedtuple(
     ],
 )
 
+TermChars = namedtuple_singleton(
+    'TermChars',
+    COLOR_REVERSE='\033[7m',
+    COLOR_GREEN='\033[92m',
+    COLOR_RESET='\033[0m',
+    LINE_CLEAR='\033[K',
+)
+
 
 def search_execute(
         search_path,
@@ -220,12 +239,13 @@ def search_execute(
     if show_progress:
         filepath_count = 0
         stdout_write = sys.stdout.write
+        format_progress_str = (TermChars.LINE_CLEAR + ' > {:<8}{}\r').format
 
     for filepath in iter_files(search_path, include_files, exclude_files):
 
         if show_progress:
             filepath_count += 1
-            stdout_write('\033[K > {:<8}{}\r'.format(
+            stdout_write(format_progress_str(
                 filepath_count,
                 filepath,
             ))
@@ -264,12 +284,12 @@ def search_execute(
 
             if show_progress:
                 # Tab characters can leave screen junk occasionally.
-                stdout_write('\033[K')
+                stdout_write(TermChars.LINE_CLEAR)
 
             yield match_data
 
     if show_progress:
-        stdout_write('\033[K')
+        stdout_write(TermChars.LINE_CLEAR)
 
 
 def search_display_ex(
@@ -320,7 +340,7 @@ def display_clear():
 
 
 def display_clear_line():
-    sys.stdout.write('\r\033[K')
+    sys.stdout.write(TermChars.LINE_CLEAR)
     sys.stdout.flush()
 
 
@@ -1022,10 +1042,10 @@ def main():
     else:
         show_color = is_interactive
 
-    color_pair = '\033[92m', '\033[0m',
+    color_pair = TermChars.COLOR_GREEN, TermChars.COLOR_RESET,
 
     if args.is_color_reverse:
-        color_pair = (color_pair[0] + '\033[7m'), color_pair[1]
+        color_pair = (color_pair[0] + TermChars.COLOR_REVERSE), color_pair[1]
 
     if args.progress == 'always':
         show_progress = True
