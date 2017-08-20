@@ -310,7 +310,7 @@ def search_display_ex(
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
         if show_color is True:
             text = string_color_ranges(text, ranges, color_pair)
-        stdout_write(format_str(i, filepath, line_number, text))
+        stdout_write(format_str(i, filepath, line_number + 1, text))
 
 
 def search_display(results: list, conf):
