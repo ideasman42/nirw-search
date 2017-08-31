@@ -94,6 +94,10 @@ For literal searches::
 
    crep --literal "if (a > c - b[0]) {"
 
+Multi-line import search in Python::
+
+   prep -M "from\s+my_module\s+import\s+\([^\)]*\)"
+
 
 Help Text
 =========
