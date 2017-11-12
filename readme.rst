@@ -111,7 +111,7 @@ Output of ``nirw-search --help``
 
 usage::
 
-       nirw-search [-h] --editor EDITOR_COMMAND [--persistent]
+       nirw-search [-h] --editor EDITOR_COMMAND [--persistent] [--index-zero]
                    [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
                    [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
                    [--color <auto,always,never>] [--color-reverse]
@@ -141,6 +141,7 @@ optional arguments:
   --persistent          Stay open after selecting a file,
                         pressing Ctrl-C resets a new search instead of exiting,
                         pressing twice exits.
+  --index-zero          Start indices at zero instead of one.
 
 filepath matching arguments:
   These options control which files are selected to be searched.

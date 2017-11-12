@@ -188,6 +188,7 @@ class Config:
         'exclude_files',
         'show_color',
         'show_progress',
+        'index_base',
         'color_pair',
     )
 
@@ -297,6 +298,7 @@ def search_display_ex(
         is_multiline: bool,
         show_color: bool,
         color_pair: tuple,
+        index_base: int,
 ):
     '''
     Note that 'results' may be a generator.
@@ -307,7 +309,7 @@ def search_display_ex(
     else:
         format_str = '{} {}:{}: {}\n'.format
 
-    for (i, (filepath, line_number, text, ranges)) in enumerate(results, 1):
+    for (i, (filepath, line_number, text, ranges)) in enumerate(results, index_base):
         if show_color is True:
             text = string_color_ranges(text, ranges, color_pair)
         stdout_write(format_str(i, filepath, line_number + 1, text))
@@ -319,6 +321,7 @@ def search_display(results: list, conf):
         conf.is_multiline,
         conf.show_color,
         conf.color_pair,
+        conf.index_base,
     )
 
 
@@ -608,8 +611,10 @@ class SearchCmd(cmd.Cmd):
             num = None
 
         if num is not None:
-            num -= 1
-            if num >= len(self.results):
+            num -= self.conf.index_base
+            if num < 0:
+                num = len(self.results) + num
+            if num >= len(self.results) or num < 0:
                 print('Number out of range!')
                 return
             return self._default_number(self.conf, self.results, num)
@@ -685,6 +690,7 @@ def search_and_edit(
     show_color: bool,
     color_pair: tuple,
     show_progress: bool,
+    index_base: int,
 ) -> None:
     '''
     :arg search_text: List of regex formatted strings.
@@ -697,6 +703,7 @@ def search_and_edit(
     :arg is_multiline: Search across multiple lines.
     :arg show_color: Color highlight matches.
     :arg show_progress: Show the file being searched.
+    :arg index_base: Index starting from this number.
     '''
     # -------------------------------------------------------------------------
     # Sanitize Input
@@ -766,6 +773,7 @@ def search_and_edit(
     conf.is_multiline = is_multiline
     conf.show_color = show_color
     conf.show_progress = show_progress
+    conf.index_base = index_base
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
     conf.include_files = include_files
@@ -891,6 +899,15 @@ command line options:
             'pressing Ctrl-C resets a new search instead of exiting,\n'
             'pressing twice exits.'
         ),
+        required=False,
+    )
+
+    parser.add_argument(
+        '--index-zero',
+        dest='index_zero',
+        default=False,
+        action='store_true',
+        help='Start indices at zero instead of one.',
         required=False,
     )
 
@@ -1054,6 +1071,11 @@ def main():
     else:
         show_progress = is_interactive
 
+    if args.index_zero:
+        index_base = 0
+    else:
+        index_base = 1
+
     search_and_edit(
         search_text,
         search_path=args.search_path,
@@ -1066,6 +1088,7 @@ def main():
         show_color=show_color,
         color_pair=color_pair,
         show_progress=show_progress,
+        index_base=index_base,
     )
 
 
