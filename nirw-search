@@ -729,7 +729,7 @@ def search_and_edit(
     if search_text:
         for t in search_text:
             search_regex_list.append(
-                re_compile_or_none(t, "search text", search_re_flags)
+                re_compile_or_none(t, 'search text', search_re_flags)
             )
             if search_regex_list[-1] is None:
                 return
@@ -739,14 +739,14 @@ def search_and_edit(
 
     # We might want to optionally use case sensitive path checks.
     include_files = re_compile_or_none(
-        include_files, "--include-files", re.IGNORECASE,
+        include_files, '--include-files', re.IGNORECASE,
     )
     if include_files is None:
         return
 
     if exclude_files:
         exclude_files = re_compile_or_none(
-            exclude_files, "--exclude-files", re.IGNORECASE,
+            exclude_files, '--exclude-files', re.IGNORECASE,
         )
         if exclude_files is None:
             return
