@@ -7,14 +7,15 @@ import textwrap
 import re
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
+COMMAND_NAME = 'nirw-search'
 
 
 def patch_help_test(help_output):
     help_output = help_output.replace(
-        "usage: nirw-search",
-        "usage::\n"
-        "\n"
-        "       nirw-search",
+        'usage: ' + COMMAND_NAME,
+        'usage::\n'
+        '\n'
+        '       ' + COMMAND_NAME,
     )
     help_output = help_output.replace(
         "{auto,always,never}", "<auto,always,never>",
@@ -26,7 +27,7 @@ def main():
     p = subprocess.run(
         [
             'python3',
-            os.path.join(BASE_DIR, 'nirw-search'),
+            os.path.join(BASE_DIR, COMMAND_NAME),
             '--help',
         ],
         stdout=subprocess.PIPE,
@@ -45,7 +46,7 @@ def main():
     # Try write reStructuredText directly!
     # help_output = textwrap.indent(help_output, '   ')
     help_output = (
-        '\nOutput of ``nirw-search --help``\n\n' +
+        '\nOutput of ``' + COMMAND_NAME + ' --help``\n\n' +
         help_output
     )
 
