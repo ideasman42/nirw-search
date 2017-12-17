@@ -210,6 +210,7 @@ command line options:
 TODO
 ====
 
+- Support printing filename once above all matches.
 - Multi-processing for regex matching.
 - Configurable encoding (currently only utf-8).
 - Tests.
