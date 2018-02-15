@@ -305,14 +305,14 @@ def search_display_ex(
     '''
     stdout_write = sys.stdout.write
     if is_multiline:
-        format_str = '{} {}:{}:\n{}\n'.format
+        format_str = '{} {}:{}:{}:\n{}\n'.format
     else:
-        format_str = '{} {}:{}: {}\n'.format
+        format_str = '{} {}:{}:{}: {}\n'.format
 
     for (i, (filepath, line_number, text, ranges)) in enumerate(results, index_base):
         if show_color is True:
             text = string_color_ranges(text, ranges, color_pair)
-        stdout_write(format_str(i, filepath, line_number + 1, text))
+        stdout_write(format_str(i, filepath, line_number + 1, str(ranges[0][0]), text))
 
 
 def search_display(results: list, conf):
