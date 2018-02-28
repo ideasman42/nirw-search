@@ -10,7 +10,7 @@ NIRW is a convenient, command-line text search tool.
 - Optionally refine within the current search.
 - Highlights matches.
 - Displays search progress.
-- Tab auto-complete terms based on current results.
+- Tab auto-complete terms based on current results (when refining a search).
 - Simple command line for more advanced filtering.
 - Optional ignore-case and multi-line and literal (without regex) support.
 - No configuration.
