@@ -1161,3 +1161,8 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         display_clear_line()
         print('Keyboard interrupt, abort!')
+    except IOError as ex:
+        # Allow 'Broken pipe' to fail silently.
+        import errno
+        if ex.errno != errno.EPIPE:
+            raise ex
