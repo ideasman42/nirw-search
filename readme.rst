@@ -112,8 +112,8 @@ Output of ``nirw-search --help``
 usage::
 
        nirw-search [-h] --editor EDITOR_COMMAND [--no-prompt] [--persistent]
-                   [--full-name] [--index-zero] [--search-path SEARCH_PATH]
-                   --include-files INCLUDE_FILES
+                   [--full-name] [--no-index] [--index-zero]
+                   [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
                    [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
                    [--color <auto,always,never>] [--color-reverse]
                    [--progress <auto,always,never>]
@@ -144,6 +144,7 @@ optional arguments:
                         pressing Ctrl-C resets a new search instead of exiting,
                         pressing twice exits.
   --full-name           Show absolute path names.
+  --no-index            Do not display numbers before each file path.
   --index-zero          Start indices at zero instead of one.
 
 filepath matching arguments:

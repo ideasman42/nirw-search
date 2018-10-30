@@ -188,6 +188,7 @@ class Config:
         'exclude_files',
         'show_color',
         'show_progress',
+        'show_index',
         'index_base',
         'color_pair',
     )
@@ -298,6 +299,7 @@ def search_display_ex(
         is_multiline: bool,
         show_color: bool,
         color_pair: tuple,
+        show_index: bool,
         index_base: int,
 ):
     '''
@@ -305,14 +307,26 @@ def search_display_ex(
     '''
     stdout_write = sys.stdout.write
     if is_multiline:
-        format_str = '{} {}:{}:{}:\n{}\n'.format
+        format_str = '{}:{}:{}:\n{}\n'
     else:
-        format_str = '{} {}:{}:{}: {}\n'.format
+        format_str = '{}:{}:{}: {}\n'
 
-    for (i, (filepath, line_number, text, ranges)) in enumerate(results, index_base):
-        if show_color is True:
-            text = string_color_ranges(text, ranges, color_pair)
-        stdout_write(format_str(i, filepath, line_number + 1, str(ranges[0][0]), text))
+    if show_index:
+        format_str = '{} ' + format_str
+
+    format_str = format_str.format
+
+    if show_index:
+        for (i, (filepath, line_number, text, ranges)) in enumerate(results, index_base):
+            if show_color is True:
+                text = string_color_ranges(text, ranges, color_pair)
+            stdout_write(format_str(i, filepath, line_number + 1, str(ranges[0][0]), text))
+    else:
+        # Same as above without 'i'.
+        for (filepath, line_number, text, ranges) in results:
+            if show_color is True:
+                text = string_color_ranges(text, ranges, color_pair)
+            stdout_write(format_str(filepath, line_number + 1, str(ranges[0][0]), text))
 
 
 def search_display(results: list, conf):
@@ -321,6 +335,7 @@ def search_display(results: list, conf):
         conf.is_multiline,
         conf.show_color,
         conf.color_pair,
+        conf.show_index,
         conf.index_base,
     )
 
@@ -691,6 +706,7 @@ def search_and_edit(
     show_color: bool,
     color_pair: tuple,
     show_progress: bool,
+    show_index: bool,
     index_base: int,
 ) -> bool:
     '''
@@ -704,6 +720,7 @@ def search_and_edit(
     :arg is_multiline: Search across multiple lines.
     :arg show_color: Color highlight matches.
     :arg show_progress: Show the file being searched.
+    :arg show_index: Show a number at the line start.
     :arg index_base: Index starting from this number.
     '''
     # -------------------------------------------------------------------------
@@ -774,6 +791,7 @@ def search_and_edit(
     conf.is_multiline = is_multiline
     conf.show_color = show_color
     conf.show_progress = show_progress
+    conf.show_index = show_index
     conf.index_base = index_base
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
@@ -925,6 +943,15 @@ command line options:
         default=False,
         action='store_true',
         help='Show absolute path names.',
+        required=False,
+    )
+
+    parser.add_argument(
+        '--no-index',
+        dest='no_index',
+        default=False,
+        action='store_true',
+        help='Do not display numbers before each file path.',
         required=False,
     )
 
@@ -1120,6 +1147,7 @@ def main():
         show_color=show_color,
         color_pair=color_pair,
         show_progress=show_progress,
+        show_index=not args.no_index,
         index_base=index_base,
     )
     return 0 if ok else 1
