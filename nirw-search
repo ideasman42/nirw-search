@@ -684,6 +684,7 @@ def search_and_edit(
     include_files: str,
     exclude_files: str,
     editor: str,
+    no_prompt: bool,
     is_persistent: bool,
     is_ignore_case: bool,
     is_multiline: bool,
@@ -804,6 +805,9 @@ def search_and_edit(
             errors_display(errors)
         del errors
 
+    if no_prompt:
+        return True
+
     if not results:
         if not is_persistent:
             print('No results for [{}] in {}, exiting!'.format(
@@ -891,6 +895,16 @@ command line options:
     # -----------------
     # Modified Behavior
 
+    # Useful to pipe output elsewhere.
+    parser.add_argument(
+        '--no-prompt',
+        dest='no_prompt',
+        default=False,
+        action='store_true',
+        help='No prompt to open an editor.',
+        required=False,
+    )
+
     parser.add_argument(
         '--persistent',
         dest='is_persistent',
@@ -901,6 +915,16 @@ command line options:
             'pressing Ctrl-C resets a new search instead of exiting,\n'
             'pressing twice exits.'
         ),
+        required=False,
+    )
+
+    # Matching git-grep option.
+    parser.add_argument(
+        '--full-name',
+        dest='show_full_name',
+        default=False,
+        action='store_true',
+        help='Show absolute path names.',
         required=False,
     )
 
@@ -1078,12 +1102,18 @@ def main():
     else:
         index_base = 1
 
+    if args.show_full_name:
+        search_path = os.path.abspath(args.search_path)
+    else:
+        search_path = args.search_path
+
     ok = search_and_edit(
         search_text,
-        search_path=args.search_path,
+        search_path=search_path,
         include_files=args.include_files,
         exclude_files=args.exclude_files,
         editor=args.editor,
+        no_prompt=args.no_prompt,
         is_persistent=args.is_persistent,
         is_ignore_case=args.is_ignore_case,
         is_multiline=args.is_multiline,

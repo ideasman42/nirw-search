@@ -111,8 +111,9 @@ Output of ``nirw-search --help``
 
 usage::
 
-       nirw-search [-h] --editor EDITOR_COMMAND [--persistent] [--index-zero]
-                   [--search-path SEARCH_PATH] --include-files INCLUDE_FILES
+       nirw-search [-h] --editor EDITOR_COMMAND [--no-prompt] [--persistent]
+                   [--full-name] [--index-zero] [--search-path SEARCH_PATH]
+                   --include-files INCLUDE_FILES
                    [--exclude-files EXCLUDE_FILES] [--literal] [-i] [-M]
                    [--color <auto,always,never>] [--color-reverse]
                    [--progress <auto,always,never>]
@@ -138,9 +139,11 @@ optional arguments:
                         which will be passed to the editor:
                         ``{file}``, ``{line}``, ``{column}`` will be replaced
                         with the file-name, line number and column respectively.
+  --no-prompt           No prompt to open an editor.
   --persistent          Stay open after selecting a file,
                         pressing Ctrl-C resets a new search instead of exiting,
                         pressing twice exits.
+  --full-name           Show absolute path names.
   --index-zero          Start indices at zero instead of one.
 
 filepath matching arguments:
