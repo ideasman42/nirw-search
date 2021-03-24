@@ -9,11 +9,23 @@ __all__ = (
     'search_and_edit',
 )
 
+import argparse
 import os
 import sys
 import cmd
 import shlex
 import re
+from collections import namedtuple
+
+# Typing.
+from typing import (
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 help_text = '''\
 Keys:
@@ -50,52 +62,57 @@ Other Commands:
 # -----------------------------------------------------------------------------
 # General Utilities
 
-def finditer_with_line_and_numbers(pattern, string):
+def finditer_with_line_and_numbers(
+        pattern: re.Pattern[str],
+        string: str,
+) -> Generator[Tuple[int, str, List[Tuple[int, int]]], None, None]:
     '''
     A version of 're.finditer' that returns;
     (line, content, range) triplets.
     '''
     matches = list(pattern.finditer(string))
-    if not matches:
-        return []
+    if matches:
+        end = matches[-1].start()
+        # '-1' so a failed 'rfind' maps to the first line.
+        newline_table = {-1: 0}
+        for i, m in enumerate(re.finditer(r'\n', string), 1):
+            # don't find newlines past our last match
+            offset = m.start()
+            if offset > end:
+                break
+            newline_table[offset] = i
 
-    end = matches[-1].start()
-    # '-1' so a failed 'rfind' maps to the first line.
-    newline_table = {-1: 0}
-    for i, m in enumerate(re.finditer(r'\n', string), 1):
-        # don't find newlines past our last match
-        offset = m.start()
-        if offset > end:
-            break
-        newline_table[offset] = i
+        string_find = string.find
+        string_rfind = string.rfind
 
-    string_find = string.find
-    string_rfind = string.rfind
-
-    # Failing to find the newline is OK, -1 maps to 0 above.
-    for m in matches:
-        m_start = m.start()
-        m_end = m.end()
-        newline_offset = string_rfind('\n', 0, m_start)
-        newline_end = string_find('\n', m_end)
-        if newline_end == -1:
-            newline_end = len(string)
-        content_offset = newline_offset + 1
-        content = string[content_offset:newline_end]
-        yield (
-            # match, in fact we don't need it.
-            # m,
-            # the line number
-            newline_table[newline_offset],
-            # actual text
-            content,
-            # matching ranges
-            [(m_start - content_offset, m_end - content_offset)],
-        )
+        # Failing to find the newline is OK, -1 maps to 0 above.
+        for m in matches:
+            m_start = m.start()
+            m_end = m.end()
+            newline_offset = string_rfind('\n', 0, m_start)
+            newline_end = string_find('\n', m_end)
+            if newline_end == -1:
+                newline_end = len(string)
+            content_offset = newline_offset + 1
+            content = string[content_offset:newline_end]
+            yield (
+                # match, in fact we don't need it.
+                # m,
+                # the line number
+                newline_table[newline_offset],
+                # actual text
+                content,
+                # matching ranges
+                [(m_start - content_offset, m_end - content_offset)],
+            )
 
 
-def iter_files(path, include_files, exclude_files):
-    include_files_match = include_files.match if include_files else None
+def iter_files(
+        path: str,
+        include_files: re.Pattern[str],
+        exclude_files: Optional[re.Pattern[str]],
+) -> Generator[str, None, None]:
+    include_files_match = include_files.match
     exclude_files_match = exclude_files.match if exclude_files else None
     for dirpath, dirnames, filenames in os.walk(path):
         dirnames[:] = [d for d in sorted(dirnames) if not d[0] == '.']
@@ -110,7 +127,7 @@ def iter_files(path, include_files, exclude_files):
             yield os.path.join(dirpath, filename)
 
 
-def merge_ranges(ranges):
+def merge_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
     '''
     Range must be already sorted.
     '''
@@ -131,7 +148,11 @@ def merge_ranges(ranges):
     return result
 
 
-def string_color_ranges(text, ranges, color_pair):
+def string_color_ranges(
+        text: str,
+        ranges: List[Tuple[int, int]],
+        color_pair: Tuple[str, str],
+) -> str:
     '''
     Ranges need to be a list of min, max's
     (sorted by max, largest first, must be non-overlapping)
@@ -151,7 +172,7 @@ def string_color_ranges(text, ranges, color_pair):
     return ''.join(text_split)
 
 
-def pretty_quote(text):
+def pretty_quote(text: str) -> str:
     '''
     Only use for error messages to give clear output,
     ``shlex.quote`` that ensures we get quotations.
@@ -161,17 +182,6 @@ def pretty_quote(text):
         return text
     else:
         return '\'{}\''.format(text)
-
-
-def namedtuple_singleton(name, **kwargs):
-    '''
-    Create a single type and its values.
-    For read-only module like singletons.
-    '''
-    from collections import namedtuple
-    keys = tuple(sorted(kwargs.keys()))
-    cls = __import__('collections').namedtuple(name, keys)
-    return cls(**kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -193,12 +203,25 @@ class Config:
         'color_pair',
     )
 
+    editor: str
+    is_persistent: bool
+    is_multiline: bool
+    search_re_flags: int
+    search_path: str
+    include_files: re.Pattern[str]
+    exclude_files: Optional[re.Pattern[str]]
+    show_color: bool
+    show_progress: bool
+    show_index: bool
+    index_base: int
+    color_pair: Tuple[str, str]
 
 # -----------------------------------------------------------------------------
 # Local
 
-Match = __import__('collections').namedtuple(
-    'Match', [
+
+Match = namedtuple(
+    'Match', (
         # string (filepath)
         'filepath',
         # int
@@ -207,11 +230,20 @@ Match = __import__('collections').namedtuple(
         'text',
         # list of numbers [(min, max), ...]
         'ranges',
-    ],
+    ),
 )
 
-TermChars = namedtuple_singleton(
-    'TermChars',
+TermCharsType = namedtuple(
+    'TermCharsType',
+    (
+        'COLOR_REVERSE',
+        'COLOR_GREEN',
+        'COLOR_RESET',
+        'LINE_CLEAR',
+    )
+)
+
+TermChars = TermCharsType(
     COLOR_REVERSE='\033[7m',
     COLOR_GREEN='\033[92m',
     COLOR_RESET='\033[0m',
@@ -220,14 +252,14 @@ TermChars = namedtuple_singleton(
 
 
 def search_execute(
-        search_path,
-        include_files,
-        exclude_files,
-        show_progress,
-        search_regex_list,
-        results_output,
-        errors_output,
-):
+        search_path: str,
+        include_files: re.Pattern[str],
+        exclude_files: Optional[re.Pattern[str]],
+        show_progress: bool,
+        search_regex_list: List[re.Pattern[str]],
+        results_output: List[Match],
+        errors_output: List[str],
+) -> Iterable[Match]:
     '''
     Search files, output as generator and into 'results_output' list.
     This is done so we can display the output before its finished searching.
@@ -295,26 +327,26 @@ def search_execute(
 
 
 def search_display_ex(
-        results,
+        results: Iterable[Match],
         is_multiline: bool,
         show_color: bool,
-        color_pair: tuple,
+        color_pair: Tuple[str, str],
         show_index: bool,
         index_base: int,
-):
+) -> None:
     '''
     Note that 'results' may be a generator.
     '''
     stdout_write = sys.stdout.write
     if is_multiline:
-        format_str = '{}:{}:{}:\n{}\n'
+        format_str_literal = '{}:{}:{}:\n{}\n'
     else:
-        format_str = '{}:{}:{}: {}\n'
+        format_str_literal = '{}:{}:{}: {}\n'
 
     if show_index:
-        format_str = '{} ' + format_str
+        format_str_literal = '{} ' + format_str_literal
 
-    format_str = format_str.format
+    format_str = format_str_literal.format
 
     if show_index:
         for (i, (filepath, line_number, text, ranges)) in enumerate(results, index_base):
@@ -329,7 +361,10 @@ def search_display_ex(
             stdout_write(format_str(filepath, line_number + 1, str(ranges[0][0]), text))
 
 
-def search_display(results: list, conf):
+def search_display(
+        results: Iterable[Match],
+        conf: Config,
+) -> None:
     search_display_ex(
         results,
         conf.is_multiline,
@@ -340,7 +375,7 @@ def search_display(results: list, conf):
     )
 
 
-def errors_display(errors: list):
+def errors_display(errors: List[str]) -> None:
     stdout_write = sys.stdout.write
     stdout_write('Error(s) occurred:\n')
     format_str = '{}\n'.format
@@ -348,7 +383,7 @@ def errors_display(errors: list):
         stdout_write(format_str(err))
 
 
-def display_clear():
+def display_clear() -> None:
     import subprocess
     if os.name == 'nt':
         command = ['cls']
@@ -357,25 +392,25 @@ def display_clear():
     subprocess.run(command)
 
 
-def display_clear_line():
+def display_clear_line() -> None:
     sys.stdout.write(TermChars.LINE_CLEAR)
     sys.stdout.flush()
 
 
-def parse_command_args_from_line(line: str) -> (str, str):
+def parse_command_args_from_line(line: str) -> Tuple[str, str]:
     '''
     Return command and arguments.
     '''
     if not line.startswith(':'):
-        return None, None
+        return '', ''
     if not line[1:].rstrip():
-        return None, None
+        return '', ''
     command, args = line.partition(' ')[::2]
     command = command[1:]
     return command, args
 
 
-def parse_filter_from_command(command: str) -> dict:
+def parse_filter_from_command(command: str) -> Optional[Dict[str, bool]]:
     '''
     Takes command with ':' removed.
     '''
@@ -407,16 +442,18 @@ class SearchCmd(cmd.Cmd):
     file = None
 
     # Gets set to a list.
-    results = None
+    results: List[Match]
     # History of previous results
     # (so we can undo filtering operations).
-    result_history = None
+    result_history: List[List[Match]]
 
     # Config class instance
-    conf = None
+    conf: Config
+
+    is_lastcmd_exit: bool
 
     @staticmethod
-    def _default_number(conf, results, num):
+    def _default_number(conf: Config, results: List[Match], num: int) -> bool:
         import subprocess
 
         match_data = results[num]
@@ -432,43 +469,55 @@ class SearchCmd(cmd.Cmd):
 
         subprocess.run(editor_args, shell=True)
         if conf.is_persistent:
-            return None
+            return False
         # Stop!
         return True
 
     @staticmethod
-    def _default_command(conf, results, result_history, line, is_regex=False):
+    def _default_command(
+            conf: Config,
+            results: List[Match],
+            result_history: List[List[Match]],
+            line: str,
+            is_regex: bool = False,
+    ) -> bool:
         '''
         Slightly VIM like commands.
         '''
 
         command, args = parse_command_args_from_line(line)
-        if command is None:
+        if command == '':
             print('No command in "{}"'.format(line))
-            return
+            return False
 
         if command == 'u':
             # Undo
             if not result_history:
                 print('Nothing to undo!')
-                return
+                return False
             results[:] = result_history.pop()
             search_display(results, conf)
-            return
+            return False
         elif command[0] in {'f', 'p'}:
             filter_args = parse_filter_from_command(command)
             if filter_args is None:
                 print('Command ":{}" contains unknown syntax!'.format(command))
-                return
+                return False
             SearchCmd._default_filter(
                 conf, results, result_history, args, **filter_args,
             )
+            return False
         else:
             print('Command ":{}" not known!'.format(command))
-            return
+            return False
 
     @staticmethod
-    def _default_search(conf, results, result_history, line):
+    def _default_search(
+            conf: Config,
+            results: List[Match],
+            result_history: List[List[Match]],
+            line: str,
+    ) -> bool:
         # Perform a new search
         try:
             search_regex_list = [re.compile(line)]
@@ -477,12 +526,12 @@ class SearchCmd(cmd.Cmd):
                 pretty_quote(line),
                 pretty_quote(str(ex)),
             ))
-            return None
+            return False
 
         # Fill new list incase the user presses Ctrl-C
         # while searching - don't leave in an invalid state.
-        results_new = []
-        errors_new = []
+        results_new: List[Match] = []
+        errors_new: List[str] = []
         search_display(
             search_execute(
                 conf.search_path,
@@ -507,13 +556,18 @@ class SearchCmd(cmd.Cmd):
                 pretty_quote(line),
                 pretty_quote(conf.search_path),
             ))
-        return None
+        return False
 
     @staticmethod
     def _default_filter(
-            conf, results, result_history, line,
-            is_regex=False, is_negate=False, is_path=False,
-    ):
+            conf: Config,
+            results: List[Match],
+            result_history: List[List[Match]],
+            line: str,
+            is_regex: bool = False,
+            is_negate: bool = False,
+            is_path: bool = False,
+    ) -> bool:
         '''
         Refine existing search (fallback when number isn't given).
         '''
@@ -536,27 +590,30 @@ class SearchCmd(cmd.Cmd):
                 pretty_quote(line),
                 pretty_quote(str(ex)),
             ))
-            return None
+            return False
 
         # Collect new matches
         results_new = []
 
         if is_path:
             for match_data in results:
-                if bool(input_search(match_data.filepath)) != is_negate:
-                    results_new.append(match_data)
+                match = input_search(match_data.filepath)
+                if match is not None:
+                    if bool(match) != is_negate:
+                        results_new.append(match_data)
         else:
             for match_data in results:
                 match = input_search(match_data.text)
-                if bool(match) != is_negate:
-                    if is_negate is False:
-                        ranges = match_data.ranges
-                        ranges.append((match.start(), match.end()))
-                        ranges.sort()
-                        match_data = match_data._replace(
-                            ranges=merge_ranges(ranges)
-                        )
-                    results_new.append(match_data)
+                if match is not None:
+                    if bool(match) != is_negate:
+                        if is_negate is False:
+                            ranges = match_data.ranges
+                            ranges.append((match.start(), match.end()))
+                            ranges.sort()
+                            match_data = match_data._replace(
+                                ranges=merge_ranges(ranges)
+                            )
+                        results_new.append(match_data)
 
         if not results_new:
             print('Nothing found!')
@@ -569,12 +626,13 @@ class SearchCmd(cmd.Cmd):
 
         if redisplay:
             search_display(results, conf)
+        return False
 
     @staticmethod
     def _complete_from_results(
-            results, text, line, begidx, endidx,
-            is_regex=False, is_path=False,
-    ):
+            results: List[Match], text: str, line: str, begidx: int, endidx: int,
+            is_regex: bool = False, is_path: bool = False,
+    ) -> List[str]:
         comp = set()
         text_finditer = re.compile(
             text if is_regex else re.escape(text),
@@ -603,35 +661,35 @@ class SearchCmd(cmd.Cmd):
         return [text + w for w in sorted(comp)]
 
     @staticmethod
-    def _refresh_prompt():
+    def _refresh_prompt() -> None:
         if SearchCmd.results:
             SearchCmd.prompt = '(search-refine) '
         else:
             SearchCmd.prompt = '(search-new) '
 
-    def precmd(self, line):
+    def precmd(self, line: str) -> str:
         SearchCmd.is_lastcmd_exit = False
         return line
 
-    def postcmd(self, stop, line):
+    def postcmd(self, stop: bool, line: str) -> bool:
         if not stop:
             # Set the prompt
             self._refresh_prompt()
         return stop
 
-    def default(self, line):
+    def default(self, line: str) -> bool:
         try:
             num = int(line.strip())
         except ValueError:
-            num = None
+            num = -1
 
-        if num is not None:
+        if num != -1:
             num -= self.conf.index_base
             if num < 0:
                 num = len(self.results) + num
             if num >= len(self.results) or num < 0:
                 print('Number out of range!')
-                return
+                return False
             return self._default_number(self.conf, self.results, num)
         elif line.startswith(':'):
             return self._default_command(
@@ -647,11 +705,19 @@ class SearchCmd(cmd.Cmd):
                     self.conf, self.results, self.result_history, line,
                 )
 
-    def completedefault(self, text, line, begidx, endidx):
+    # NOTE: the super-classes signiture isn't complete.
+    def completedefault(  # type: ignore
+            self,
+            text: str,
+            line: str,
+            begidx: int,
+            endidx: int,
+    ) -> List[str]:
+
         try:
             if line.startswith(':'):
                 command, args = parse_command_args_from_line(line)
-                if command is None:
+                if command == '':
                     return []
 
                 if command == 'u':
@@ -664,14 +730,20 @@ class SearchCmd(cmd.Cmd):
                         self.results, text, line, begidx, endidx,
                         is_path=filter_args['is_path'],
                     )
-                else:
-                    return []
+
+            return []
         except:
             import traceback
             traceback.print_exc()
             return []
 
-    def completenames(self, text, line, begidx, endidx):
+    # NOTE: the super-classes signiture isn't complete.
+    def completenames(  # type: ignore
+            self, text: str,
+            line: str,
+            begidx: int,
+            endidx: int,
+    ) -> List[str]:
         '''
         Needed so we can override completion for _all_ text
         not just commands.
@@ -685,7 +757,7 @@ class SearchCmd(cmd.Cmd):
             traceback.print_exc()
             return []
 
-    def do_EOF(self, _arg):
+    def do_EOF(self, _arg: str) -> None:
         '''
         Use Ctrl-D to cleat the terminal and re-display.
         '''
@@ -694,7 +766,7 @@ class SearchCmd(cmd.Cmd):
 
 
 def search_and_edit(
-    search_text: list,
+    search_text: List[str],
     search_path: str,
     include_files: str,
     exclude_files: str,
@@ -704,7 +776,7 @@ def search_and_edit(
     is_ignore_case: bool,
     is_multiline: bool,
     show_color: bool,
-    color_pair: tuple,
+    color_pair: Tuple[str, str],
     show_progress: bool,
     show_index: bool,
     index_base: int,
@@ -731,8 +803,9 @@ def search_and_edit(
         search_re_flags |= re.IGNORECASE
     if is_multiline:
         search_re_flags |= re.MULTILINE
+    search_re_flags |= re.DOTALL
 
-    def re_compile_or_none(expr, arg_id, flags=0):
+    def re_compile_or_none(expr: str, arg_id: str, flags: int = 0) -> Optional[re.Pattern[str]]:
         try:
             return re.compile(expr, flags)
         except Exception as ex:
@@ -746,27 +819,27 @@ def search_and_edit(
     search_regex_list = []
     if search_text:
         for t in search_text:
-            search_regex_list.append(
-                re_compile_or_none(t, 'search text', search_re_flags)
-            )
-            if search_regex_list[-1] is None:
+            t_compiled = re_compile_or_none(t, 'search text', search_re_flags)
+            if t_compiled is None:
                 return False
+            search_regex_list.append(t_compiled)
     else:
         print('No search text given, entering persistent mode.')
         is_persistent = True
 
     # We might want to optionally use case sensitive path checks.
-    include_files = re_compile_or_none(
+    include_files_compiled = re_compile_or_none(
         include_files, '--include-files', re.IGNORECASE,
     )
-    if include_files is None:
+    if include_files_compiled is None:
         return False
 
+    exclude_files_compiled = None
     if exclude_files:
-        exclude_files = re_compile_or_none(
+        exclude_files_compiled = re_compile_or_none(
             exclude_files, '--exclude-files', re.IGNORECASE,
         )
-        if exclude_files is None:
+        if exclude_files_compiled is None:
             return False
 
     if not os.path.exists(search_path):
@@ -795,23 +868,23 @@ def search_and_edit(
     conf.index_base = index_base
     conf.search_re_flags = search_re_flags
     conf.search_path = search_path
-    conf.include_files = include_files
-    conf.exclude_files = exclude_files
+    conf.include_files = include_files_compiled
+    conf.exclude_files = exclude_files_compiled
     conf.color_pair = color_pair
 
     # -------------------------------------------------------------------------
     # Search
 
-    results = []
-    errors = []
-    result_history = []
+    results: List[Match] = []
+    errors: List[str] = []
+    result_history: List[List[Match]] = []
 
     if search_text:
         search_display(
             search_execute(
                 search_path,
-                include_files,
-                exclude_files,
+                include_files_compiled,
+                exclude_files_compiled,
                 show_progress,
                 search_regex_list,
                 results,
@@ -879,8 +952,7 @@ def search_and_edit(
     return True
 
 
-def argparse_create():
-    import argparse
+def argparse_create() -> argparse.ArgumentParser:
     import textwrap
 
     epilog = (
@@ -1093,7 +1165,7 @@ command line options:
     return parser
 
 
-def main():
+def main() -> int:
     import re
 
     args = argparse_create().parse_args()
